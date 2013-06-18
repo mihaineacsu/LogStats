@@ -32,6 +32,10 @@ class TestLogStats(unittest.TestCase):
         self.assertIsNotNone(self.stats.get_log_file())
 
     def test_read_lines(self):
+        """
+            Helped me find why a different test didn't pass.
+        """
+
         for line in range(random.randrange(self.num_lines)):
             self.assertIsNotNone(self.stats.get_line())
 
@@ -68,10 +72,23 @@ class TestLogStats(unittest.TestCase):
         
         for line_number in range(random.randrange(self.num_lines)):
             current_line = self.stats.get_line()
-            if not self.parser.is_line_valid(current_line):
+            if not self.parser.is_entry_valid(current_line):
                 continue
             (since, until) = self.parser.parse_interval(current_line)
             self.assertIsNotNone(self.validate_interval(since, until))
+
+    def test_organize_by_day(self):
+        entries = self.stats.get_entries()
+
+        for line_number in range(random.randrange(self.num_lines)):
+            current_line = self.stats.get_line()
+            if not self.parser.is_entry_valid(current_line):
+                continue
+            date = self.parser.parse_date(current_line)
+            interval = self.parser.parse_interval(current_line)
+
+            self.assertTrue(date in entries)
+            self.assertTrue(interval in entries[date])
 
 def main():
     unittest.main()
