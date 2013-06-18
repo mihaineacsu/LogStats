@@ -1,9 +1,10 @@
 import os
 import re
 import ast
+import time
+import datetime
 
 from dateutil.relativedelta import *
-import datetime
 
 from config import log_folder
 
@@ -93,3 +94,11 @@ class LogStats:
             new_date = date - relativedelta(months=i)
             dates_before.append(new_date)
         return dates_before
+
+    def convert_timestamp(self, dates):
+        new_dates = []
+        for date in dates:
+            new_dates.append(time.mktime(date.timetuple()))
+        return new_dates
+
+
