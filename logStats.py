@@ -31,7 +31,7 @@ class EntryParser:
     def parse_interval(self, line):
         return (self.get_since(line), self.get_until(line))
 
-    def is_line_valid(self, line):
+    def is_entry_valid(self, line):
         """
             Checks if log entry contains data request for a certain interval.
         """
@@ -47,8 +47,31 @@ class LogStats:
         except IOError:
             "Could not open file!"
 
+        self.parser = EntryParser()
+
     def get_log_file(self):
         return self.log_file
 
     def get_line(self):
         return self.log_file.readline()
+
+    def get_entries(self):
+        """
+            Organizes entries by day in a dict.
+            Day of request is key, (until, since) are values.
+        """
+
+        entries = {}
+        for entry in self.log_file:
+            if not self.parser.is_entry_valid(entry):
+                continue
+            date = self.parser.parse_date(entry)
+            interval = self.parser.parse_interval(entry)
+            if date in entries:
+                new_list = entries.get(date)
+                new_list.append(interval)
+                entries[date] = new_list
+            else:
+                entries[date] = [interval]
+
+        return entries
