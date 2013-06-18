@@ -2,6 +2,9 @@ import os
 import re
 import ast
 
+from dateutil.relativedelta import *
+import datetime
+
 from config import log_folder
 
 class EntryParser:
@@ -40,6 +43,8 @@ class EntryParser:
             return True
         return False
 
+
+
 class LogStats:
     def __init__(self, log_file):
         try: 
@@ -75,3 +80,16 @@ class LogStats:
                 entries[date] = [interval]
 
         return entries
+
+    def get_previous_months_dates(self, date):
+        """
+            Computes the dates for all the 3 months before date.
+            Returns these dates (datetime.datetime type) in a list.
+        """
+
+        dates_before = []                
+        date = datetime.datetime.strptime(date, "%Y-%m-%d")
+        for i in range(1,4):
+            new_date = date - relativedelta(months=i)
+            dates_before.append(new_date)
+        return dates_before
