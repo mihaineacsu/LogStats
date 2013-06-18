@@ -95,6 +95,14 @@ class TestLogStats(unittest.TestCase):
             self.assertEqual(len(limits), 3)
             for date in limits:
                 self.assertTrue(type(date) is datetime.datetime)
+
+    def test_convert_dates_timestamp(self):
+        for req_date in self.entries:
+            limits = self.stats.get_previous_months_dates(req_date)
+            new_limits = self.stats.convert_timestamp(limits)
+            self.assertEqual(len(limits), 3)
+            for date in new_limits:
+                self.assertTrue(type(date) is float)
         
 def main():
     unittest.main()
