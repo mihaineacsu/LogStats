@@ -23,7 +23,8 @@ class TestLogStats(unittest.TestCase):
 
         self.num_lines = len(self.stats.get_log_file().readlines())
         self.stats.get_log_file().seek(0, 0)
-
+        self.entries = self.stats.get_entries()
+        self.stats.get_log_file().seek(0, 0)
 
     def tearDown(self):
         self.stats.get_log_file().close()
@@ -78,8 +79,6 @@ class TestLogStats(unittest.TestCase):
             self.assertIsNotNone(self.validate_interval(since, until))
 
     def test_organize_by_day(self):
-        entries = self.stats.get_entries()
-
         for line_number in range(random.randrange(self.num_lines)):
             current_line = self.stats.get_line()
             if not self.parser.is_entry_valid(current_line):
@@ -87,8 +86,30 @@ class TestLogStats(unittest.TestCase):
             date = self.parser.parse_date(current_line)
             interval = self.parser.parse_interval(current_line)
 
-            self.assertTrue(date in entries)
-            self.assertTrue(interval in entries[date])
+            self.assertTrue(date in self.entries)
+            self.assertTrue(interval in self.entries[date])
+
+    def test_interval_limits(self):
+        for req_date in self.entries:
+            limits = self.stats.get_previous_months_dates(req_date)
+            self.assertEqual(len(limits), 3)
+            for date in limits:
+                self.assertTrue(type(date) is datetime.datetime)
+
+    def test_convert_dates_timestamp(self):
+        for req_date in self.entries:
+            limits = self.stats.get_previous_months_dates(req_date)
+            new_limits = self.stats.convert_timestamp(limits)
+            self.assertEqual(len(limits), 3)
+            for date in new_limits:
+                self.assertTrue(type(date) is float)
+
+    def test_compare_dates_day(self):
+        for req_date in self.entries:
+            limits = self.stats.get_previous_months_dates(req_date)
+            new_limits = self.stats.convert_timestamp(limits)
+            results = self.stats.compare_dates_day(new_limits, self.entries[req_date])
+            self.assertIsNotNone(results)
 
 def main():
     unittest.main()
