@@ -5,40 +5,41 @@ import time
 import datetime
 
 from logStats import LogStats
-from logStats import EntryParser
 
 from config import log_folder
 
 class TestLogStats(unittest.TestCase):
     def setUp(self):
         """
-            Select a random log file for each test.
+            Selects a random log file for each test.
         """
 
         log_files = os.listdir(log_folder)
-        self.random_log_file = log_files[random.randrange(len(log_files))]
-        self.stats = LogStats(self.random_log_file)
+        random_log_name = log_files[random.randrange(len(log_files))]
+        self.logStats = LogStats(random_log_name)
 
-        self.parser = EntryParser()
+        self.parser = self.logStats.parser
 
-        self.num_lines = len(self.stats.get_log_file().readlines())
-        self.stats.get_log_file().seek(0, 0)
-        self.entries = self.stats.get_entries()
-        self.stats.get_log_file().seek(0, 0)
+        log_file = self.logStats.get_log_file()
+        self.num_lines = len(log_file.readlines())
+        log_file.seek(0, 0)
+
+        self.entries = self.logStats.get_entries()
+        log_file.seek(0, 0)
 
     def tearDown(self):
-        self.stats.get_log_file().close()
+        self.logStats.get_log_file().close()
        
     def test_open_file(self):
-        self.assertIsNotNone(self.stats.get_log_file())
+        self.assertIsNotNone(self.logStats.get_log_file())
 
     def test_read_lines(self):
         """
-            Helped me find why a different test didn't pass.
+            Helped me find why a different test didn't pass, best to be kept.
         """
 
         for line in range(random.randrange(self.num_lines)):
-            self.assertIsNotNone(self.stats.get_line())
+            self.assertIsNotNone(self.logStats.get_entry())
 
     def validate_date(self, date):
         result = None
@@ -51,8 +52,9 @@ class TestLogStats(unittest.TestCase):
 
     def test_parse_date(self):
         for line_number in range(random.randrange(self.num_lines)):
-            current_line = self.stats.get_line()
+            current_line = self.logStats.get_entry()
             date = self.parser.parse_date(current_line)
+
             self.assertIsNotNone(self.validate_date(date))
 
     def validate_interval(self, since, until):
@@ -68,11 +70,11 @@ class TestLogStats(unittest.TestCase):
             
     def test_parse_interval_limits(self):
         '''
-            Tests parser on 'since' and 'until' values.
+            Tests parser on returning 'since' and 'until' values.
         '''
         
         for line_number in range(random.randrange(self.num_lines)):
-            current_line = self.stats.get_line()
+            current_line = self.logStats.get_entry()
             if not self.parser.is_entry_valid(current_line):
                 continue
             (since, until) = self.parser.parse_interval(current_line)
@@ -80,46 +82,45 @@ class TestLogStats(unittest.TestCase):
 
     def test_organize_by_day(self):
         for line_number in range(random.randrange(self.num_lines)):
-            current_line = self.stats.get_line()
+            current_line = self.logStats.get_entry()
             if not self.parser.is_entry_valid(current_line):
                 continue
             date = self.parser.parse_date(current_line)
             interval = self.parser.parse_interval(current_line)
-
             self.assertTrue(date in self.entries)
             self.assertTrue(interval in self.entries[date])
 
-    def test_interval_limits(self):
-        for req_date in self.entries:
-            limits = self.stats.get_previous_months_dates(req_date)
-            self.assertEqual(len(limits), 3)
-            for date in limits:
-                self.assertTrue(type(date) is datetime.datetime)
+    def test_previous_months_dates(self):
+        for date in self.entries:
+            months = self.logStats.get_previous_months_dates(date)
+            self.assertEqual(len(months), 3)
+            for month in months:
+                self.assertTrue(type(month) is datetime.datetime)
 
     def test_convert_dates_timestamp(self):
-        for req_date in self.entries:
-            limits = self.stats.get_previous_months_dates(req_date)
-            new_limits = self.stats.convert_timestamp(limits)
-            self.assertEqual(len(limits), 3)
-            for date in new_limits:
-                self.assertTrue(type(date) is float)
+        for date in self.entries:
+            months = self.logStats.get_previous_months_dates(date)
+            new_months = self.logStats.convert_timestamp(months)
+            self.assertEqual(len(new_months), 3)
+            for month in new_months:
+                self.assertTrue(type(month) is float)
 
-    def test_compare_dates_day(self):
-        for req_date in self.entries:
-            limits = self.stats.get_previous_months_dates(req_date)
-            new_limits = self.stats.convert_timestamp(limits)
-            results = self.stats.compare_dates_day(new_limits, self.entries[req_date])
-            self.assertIsNotNone(results)
+    def test_get_date_stats(self):
+        for date in self.entries:
+            months = self.logStats.get_previous_months_dates(date)
+            new_months = self.logStats.convert_timestamp(months)
+            day_stats = self.logStats.get_date_stats(new_months, self.entries[date])
+            self.assertIsNotNone(day_stats)
 
     def test_plot(self):
-        day_stats = []
-        for req_date in self.entries:
-            limits = self.stats.get_previous_months_dates(req_date)
-            new_limits = self.stats.convert_timestamp(limits)
-            day_stats.append(self.stats.compare_dates_day(new_limits, self.entries[req_date]))
+        all_stats = []
+        for date in self.entries:
+            months = self.logStats.get_previous_months_dates(date)
+            new_months = self.logStats.convert_timestamp(months)
+            all_stats.append(self.logStats.get_date_stats(new_months, self.entries[date]))
 
-        overall_stats = self.stats.gather_overall_results(day_stats)
-        self.stats.plot_stats(day_stats, overall_stats, self.entries)
+        overall_stats = self.logStats.gather_overall_stats(all_stats)
+        self.logStats.plot_stats(all_stats, overall_stats, self.entries)
 
 
 def main():
