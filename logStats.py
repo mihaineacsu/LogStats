@@ -124,3 +124,13 @@ class LogStats:
             if found is False:
                 results[month] = results[month] + 1
         return results
+
+    def gather_overall_results(self, day_results):
+        """
+            Uses result from each day to compute overall results
+        """
+        overall = [0, 0, 0 ,0]
+        for day in day_results:
+            overall = [(x + y) for x, y in zip(overall, day)]
+
+        return overall
