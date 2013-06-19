@@ -103,7 +103,14 @@ class TestLogStats(unittest.TestCase):
             self.assertEqual(len(limits), 3)
             for date in new_limits:
                 self.assertTrue(type(date) is float)
-        
+
+    def test_compare_dates_day(self):
+        for req_date in self.entries:
+            limits = self.stats.get_previous_months_dates(req_date)
+            new_limits = self.stats.convert_timestamp(limits)
+            results = self.stats.compare_dates_day(new_limits, self.entries[req_date])
+            self.assertIsNotNone(results)
+
 def main():
     unittest.main()
 

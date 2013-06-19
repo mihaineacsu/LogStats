@@ -84,7 +84,7 @@ class LogStats:
 
     def get_previous_months_dates(self, date):
         """
-            Computes the dates for all the 3 months before date.
+            Computes the dates for all the 3 months before date;
             Returns these dates (datetime.datetime type) in a list.
         """
 
@@ -101,4 +101,36 @@ class LogStats:
             new_dates.append(time.mktime(date.timetuple()))
         return new_dates
 
+    def compare_dates_day(self, previous_months, accessed_dates):
+        """
+            accessed_dates is list of (since, until) tuples;
+            previous_months contains ending dates of previous_months intervals;
+            Returns a list with the num of data accesses for each month.
+        """
 
+        results = [0, 0, 0, 0]
+        for accessed_date in accessed_dates:
+            since = float(accessed_date[0])
+            #'month' is used to mark the accessed month in regard to date of request
+            month = 0
+            found = False
+            for date in previous_months:
+                if since > date:
+                    results[month] = results[month] + 1
+                    found = True
+                    break
+                month = month + 1
+
+            if found is False:
+                results[month] = results[month] + 1
+        return results
+
+    def gather_overall_results(self, day_results):
+        """
+            Uses result from each day to compute overall results
+        """
+        overall = [0, 0, 0 ,0]
+        for day in day_results:
+            overall = [(x + y) for x, y in zip(overall, day)]
+
+        return overall
