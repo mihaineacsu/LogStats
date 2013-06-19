@@ -109,7 +109,6 @@ class TestLogStats(unittest.TestCase):
             limits = self.stats.get_previous_months_dates(req_date)
             new_limits = self.stats.convert_timestamp(limits)
             results = self.stats.compare_dates_day(new_limits, self.entries[req_date])
-            print results
             self.assertIsNotNone(results)
 
     def test_plot(self):

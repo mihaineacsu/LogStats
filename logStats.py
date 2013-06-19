@@ -47,7 +47,6 @@ class EntryParser:
         return False
 
 
-
 class LogStats:
     def __init__(self, log_file):
         try: 
@@ -138,6 +137,9 @@ class LogStats:
         return overall
 
     def plot_stats(self, day_stats, overall_stats, entries):
+        days_plot = plt.figure()                    
+        days_ax0 = days_plot.add_subplot(111)
+
         num_days = len(day_stats)
         x_day_location = numpy.arange(num_days)
         width = 0.1
@@ -147,31 +149,50 @@ class LogStats:
         three_months_ago = [c for a, b, c, d in day_stats]
         older = [d for a, b, c, d in day_stats]
         days = [day for day in entries]
-        print days
-
-        days_plot = plt.figure()                    
-        days_ax0 = days_plot.add_subplot(111)
 
         rect_one_month = days_ax0.bar(x_day_location, one_month_ago,
                 width, color='r')
         rect_two_months = days_ax0.bar(x_day_location + width, two_months_ago,
                 width, color='g')
-        rect_three_months = days_ax0.bar(x_day_location + 2 * width, three_months_ago,
-                width, color='b')
-        rect_older = days_ax0.bar(x_day_location + 3 * width, older, width, color='y')
+        rect_three_months = days_ax0.bar(x_day_location + 2 * width,
+                three_months_ago, width, color='b')
+        rect_older = days_ax0.bar(x_day_location + 3 * width, older, width,
+                color='y')
         rects = [rect_one_month, rect_two_months, rect_three_months, rect_older]
+
+        month_legend = ["One month ago", "Two months ago", "Three months ago",
+                "Older"]
 
         days_ax0.set_ylabel('Accesses')
         days_ax0.set_title('Accesses to data by day')
-        days_ax0.set_xticks(x_day_location + width)
+        days_ax0.set_xticks(x_day_location + width / 2)
         days_ax0.set_xticklabels(days)
         days_ax0.legend((rect[0] for rect in rects),
-                ("One month ago", "Two months ago", "Three months ago", "Older"))
+                month_legend)
 
         for rect in rects:
             for index in range(len(rects)):
                 height = rect[index].get_height()
                 days_ax0.text(rect[index].get_x()+rect[index].get_width()/2.,
                         1.05*height, '%d'%int(height), ha='center', va='bottom')
+
+        overall_plot = plt.figure()
+        overall_ax0 = overall_plot.add_subplot(111)
+        
+        x_overall_location = numpy.arange(len(rects))
+        overall_width = 0.5
+
+        rect_overall = overall_ax0.bar(x_overall_location, overall_stats,
+                overall_width, color = 'r')
+
+        overall_ax0.set_ylabel('Accesses')
+        overall_ax0.set_title('Overall accesses')
+        overall_ax0.set_xticks(x_overall_location + overall_width / 2)
+        overall_ax0.set_xticklabels(month_legend)
+
+        for index in range(len(overall_stats)):
+            height = rect_overall[index].get_height()
+            overall_ax0.text(rect_overall[index].get_x()+rect_overall[index].get_width()/2.,
+                    1.05*height, '%d'%int(height), ha='center', va='bottom')
 
         plt.show()
