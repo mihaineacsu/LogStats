@@ -24,11 +24,11 @@ class LogStats:
         def parse_date(self, line):
             """
                 Skips first character '[',
-                and returns the first word which is the date
+                and returns the first elem till ':' which is the date
             """
 
             line = line[1:]
-            return re.split('\s', line)[0]
+            return line.partition(':')[0]
 
         def get_since(self, line):
             """
