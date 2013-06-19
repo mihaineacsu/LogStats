@@ -111,6 +111,17 @@ class TestLogStats(unittest.TestCase):
             results = self.stats.compare_dates_day(new_limits, self.entries[req_date])
             self.assertIsNotNone(results)
 
+    def test_plot(self):
+        day_stats = []
+        for req_date in self.entries:
+            limits = self.stats.get_previous_months_dates(req_date)
+            new_limits = self.stats.convert_timestamp(limits)
+            day_stats.append(self.stats.compare_dates_day(new_limits, self.entries[req_date]))
+
+        overall_stats = self.stats.gather_overall_results(day_stats)
+        self.stats.plot_stats(day_stats, overall_stats, self.entries)
+
+
 def main():
     unittest.main()
 
