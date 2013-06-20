@@ -9,7 +9,7 @@ import numpy
 import matplotlib.pyplot as plt
 from dateutil.relativedelta import *
 
-from config import log_folder
+from config import log_folder, filters
 
 
 class LogStats:
@@ -81,19 +81,29 @@ class LogStats:
         def is_entry_valid(self, line):
             """
                 Checks if log entry contains data request for a certain interval.
-                It's not valid if it doesn't contain 'since' keyword
+                It's not valid if it doesn't contain 'since' keyword, it's not 
+                GET request with mention search.
             """
+            for filter_entry in filters:
+                if filter_entry not in line:
+                    return False
 
-            if line.find('since') != -1 or \
-                line.find('until') != -1:
-                return True
-            return False
+            return True
 
     def get_log_file(self):
         return self.log_file
 
     def get_entry(self):
-        return self.log_file.readline()
+        """
+            Returns a valid entry or empty string is EOF has been reached
+        """
+
+        line = ""
+        while not self.parser.is_entry_valid(line):
+            line = self.log_file.readline()
+            if not line:
+                break
+        return line
 
     def get_entries_day(self):
         """
