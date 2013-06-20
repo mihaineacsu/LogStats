@@ -14,10 +14,10 @@ from config import log_folder
 
 class LogStats:
     def __init__(self, log_file):
-        try: 
+        try:
             self.log_file = open(os.path.join(log_folder, log_file), 'r')
         except IOError:
-            "Could not open file!"
+            "Could not open log file!"
 
         self.parser = self.EntryParser()
 
@@ -35,10 +35,11 @@ class LogStats:
             """
                 Returns 'since' timestamp value.
             """
-            
+
             pr = urlparse.urlparse(line)
             try:
-                since = urlparse.parse_qs(pr.query)['since']
+                since = urlparse.parse_qs(pr.query)['since'][0]
+                since = since.partition(' ')[0]
             except KeyError:
                 since = None
             return since
@@ -46,14 +47,16 @@ class LogStats:
         def get_until(self, line, date):
             """
                 Returns 'until' timestamp value.
+                If 'until' value is missing, we set it to date of request
             """
 
             pr = urlparse.urlparse(line)
             try:
-                until = urlparse.parse_qs(pr.query)['until']
+                until = urlparse.parse_qs(pr.query)['until'][0]
+                until = until.partition(' ')[0]
             except KeyError:
                 date = datetime.datetime.strptime(date, '%d/%b/%Y')
-                until = time.mktime(date.timetuple())
+                until = str(time.mktime(date.timetuple()))
             return until
 
         def parse_interval(self, line):
@@ -67,18 +70,18 @@ class LogStats:
         def is_interval_valid(self, interval):
             """
                 Checks whether 'since' values are valid.
-                Faulty entries with 'since=0' found.
+                Faulty entries with 'since=0' have been found in log.
             """
 
             since = interval[0]
-            if since is None or since == 0:
+            if since is None or int(since) == 0:
                 return False
             return True
 
         def is_entry_valid(self, line):
             """
                 Checks if log entry contains data request for a certain interval.
-                It's not valid if doesn't contain 'since' keyword
+                It's not valid if it doesn't contain 'since' keyword
             """
 
             if line.find('since') != -1 or \
@@ -92,7 +95,7 @@ class LogStats:
     def get_entry(self):
         return self.log_file.readline()
 
-    def get_entries(self):
+    def get_entries_day(self):
         """
             Organizes entries by day in a dict.
             Day of request is key, (until, since) are values.
@@ -122,8 +125,8 @@ class LogStats:
             Returns these dates (datetime.datetime type) in a list.
         """
 
-        dates_before = []                
-        date = datetime.datetime.strptime(date, "%Y-%m-%d")
+        dates_before = []
+        date = datetime.datetime.strptime(date, "%d/%b/%Y")
         for i in range(1,4):
             new_date = date - relativedelta(months=i)
             dates_before.append(new_date)
@@ -173,7 +176,7 @@ class LogStats:
         return overall
 
     def plot_stats(self, day_stats, overall_stats, entries):
-        days_plot = plt.figure()                    
+        days_plot = plt.figure()
         days_ax0 = days_plot.add_subplot(111)
 
         x_day_location = numpy.arange(len(day_stats))
@@ -206,14 +209,15 @@ class LogStats:
                 month_legend)
 
         for rect in rects:
-            for index in range(len(rects)):
+            for index in range(len(rect)):
+                print index
                 height = rect[index].get_height()
                 days_ax0.text(rect[index].get_x() + rect[index].get_width()/2.,
                         1.05*height, '%d'%int(height), ha='center', va='bottom')
 
         overall_plot = plt.figure()
         overall_ax0 = overall_plot.add_subplot(111)
-        
+
         x_overall_location = numpy.arange(len(rects))
         overall_width = 0.5
 

@@ -16,6 +16,7 @@ class TestLogStats(unittest.TestCase):
 
         log_files = os.listdir(log_folder)
         random_log_name = log_files[random.randrange(len(log_files))]
+        print random_log_name
         self.logStats = LogStats(random_log_name)
 
         self.parser = self.logStats.parser
@@ -24,12 +25,12 @@ class TestLogStats(unittest.TestCase):
         self.num_lines = len(log_file.readlines())
         log_file.seek(0, 0)
 
-        self.entries = self.logStats.get_entries()
+        self.entries = self.logStats.get_entries_day()
         log_file.seek(0, 0)
 
     def tearDown(self):
-        self.logStats.get_log_file().close()
-       
+       self.logStats.get_log_file().close()
+
     def test_open_file(self):
         self.assertIsNotNone(self.logStats.get_log_file())
 
@@ -43,10 +44,11 @@ class TestLogStats(unittest.TestCase):
 
     def validate_date(self, date):
         result = None
+
         try:
-            result = time.strptime(date, '%Y-%m-%d')
+            result = datetime.datetime.strptime(date, '%d/%b/%Y')
         except ValueError:
-              print('Invalid date!')
+            print('Invalid date!')
 
         return result
 
@@ -62,19 +64,19 @@ class TestLogStats(unittest.TestCase):
         until = interval[1]
         result = None
         try:
-            since_date = datetime.datetime.fromtimestamp(int(since)).strftime('%Y-%m-%d %H:%M:%S')
-            until_date = datetime.datetime.fromtimestamp(int(until)).strftime('%Y-%m-%d %H:%M:%S')
+            since_date = datetime.datetime.fromtimestamp(float(since)).strftime('%Y-%m-%d %H:%M:%S')
+            until_date = datetime.datetime.fromtimestamp(float(until)).strftime('%Y-%m-%d %H:%M:%S')
             result = (since_date, until_date)
         except ValueError:
             print('Invalid since/until date!')
 
         return result
-            
+
     def test_parse_interval_limits(self):
         '''
             Tests parser on returning 'since' and 'until' values.
         '''
-        
+
         for line_number in range(random.randrange(self.num_lines)):
             current_line = self.logStats.get_entry()
             if not self.parser.is_entry_valid(current_line):
