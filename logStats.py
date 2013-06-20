@@ -3,20 +3,21 @@ import re
 import ast
 import time
 import datetime
+import urlparse
 
 import numpy
 import matplotlib.pyplot as plt
 from dateutil.relativedelta import *
 
-from config import log_folder
+from config import log_folder, filters
 
 
 class LogStats:
     def __init__(self, log_file):
-        try: 
+        try:
             self.log_file = open(os.path.join(log_folder, log_file), 'r')
         except IOError:
-            "Could not open file!"
+            "Could not open log file!"
 
         self.parser = self.EntryParser()
 
@@ -24,54 +25,87 @@ class LogStats:
         def parse_date(self, line):
             """
                 Skips first character '[',
-                and returns the first word which is the date
+                and returns the first elem till ':' which is the date
             """
 
             line = line[1:]
-            return re.split('\s', line)[0]
+            return line.partition(':')[0]
 
         def get_since(self, line):
             """
                 Returns 'since' timestamp value.
             """
 
-            since_index = line.find('since')
-            newline = line[since_index:]
-            return newline[:newline.find(',')].split()[1]
+            pr = urlparse.urlparse(line)
+            try:
+                since = urlparse.parse_qs(pr.query)['since'][0]
+                since = since.partition(' ')[0]
+            except KeyError:
+                since = None
+            return since
 
-        def get_until(self, line):
+        def get_until(self, line, date):
             """
                 Returns 'until' timestamp value.
+                If 'until' value is missing, we set it to date of request
             """
 
-            until_index = line.find('until')
-            newline = line[until_index:]
-            return newline[:newline.find('}')].split()[1]
+            pr = urlparse.urlparse(line)
+            try:
+                until = urlparse.parse_qs(pr.query)['until'][0]
+                until = until.partition(' ')[0]
+            except KeyError:
+                date = datetime.datetime.strptime(date, '%d/%b/%Y')
+                until = str(time.mktime(date.timetuple()))
+            return until
 
         def parse_interval(self, line):
             """
                 Returns a (since, until) tuple from line
             """
 
-            return (self.get_since(line), self.get_until(line))
+            date = self.parse_date(line)
+            return (self.get_since(line), self.get_until(line, date))
+
+        def is_interval_valid(self, interval):
+            """
+                Checks whether 'since' values are valid.
+                Faulty entries with 'since=0' have been found in log.
+            """
+
+            since = interval[0]
+            if since is None or int(since) == 0:
+                return False
+            return True
 
         def is_entry_valid(self, line):
             """
                 Checks if log entry contains data request for a certain interval.
-                It's not valid if doesn't contain 'since' keyword
+                It's not valid if it doesn't contain 'since' keyword, it's not 
+                GET request with mention search.
             """
+            for filter_entry in filters:
+                if filter_entry not in line:
+                    return False
 
-            if line.find('since') != -1:
-                return True
-            return False
+            return True
 
     def get_log_file(self):
         return self.log_file
 
     def get_entry(self):
-        return self.log_file.readline()
+        """
+            Returns a valid entry or empty string is EOF has been reached
+        """
 
-    def get_entries(self):
+        line = ""
+        while not self.parser.is_entry_valid(line):
+            line = self.log_file.readline()
+            if not line:
+                break
+        return line
+
+    def get_entries_day(self):
         """
             Organizes entries by day in a dict.
             Day of request is key, (until, since) are values.
@@ -83,6 +117,8 @@ class LogStats:
                 continue
             date = self.parser.parse_date(entry)
             interval = self.parser.parse_interval(entry)
+            if not self.parser.is_interval_valid(interval):
+                continue
             #if dict already contains date entry, updates it's values
             if date in entries:
                 new_list = entries.get(date)
@@ -99,8 +135,8 @@ class LogStats:
             Returns these dates (datetime.datetime type) in a list.
         """
 
-        dates_before = []                
-        date = datetime.datetime.strptime(date, "%Y-%m-%d")
+        dates_before = []
+        date = datetime.datetime.strptime(date, "%d/%b/%Y")
         for i in range(1,4):
             new_date = date - relativedelta(months=i)
             dates_before.append(new_date)
@@ -150,7 +186,7 @@ class LogStats:
         return overall
 
     def plot_stats(self, day_stats, overall_stats, entries):
-        days_plot = plt.figure()                    
+        days_plot = plt.figure()
         days_ax0 = days_plot.add_subplot(111)
 
         x_day_location = numpy.arange(len(day_stats))
@@ -183,14 +219,15 @@ class LogStats:
                 month_legend)
 
         for rect in rects:
-            for index in range(len(rects)):
+            for index in range(len(rect)):
+                print index
                 height = rect[index].get_height()
                 days_ax0.text(rect[index].get_x() + rect[index].get_width()/2.,
                         1.05*height, '%d'%int(height), ha='center', va='bottom')
 
         overall_plot = plt.figure()
         overall_ax0 = overall_plot.add_subplot(111)
-        
+
         x_overall_location = numpy.arange(len(rects))
         overall_width = 0.5
 
