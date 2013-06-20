@@ -79,8 +79,6 @@ class TestLogStats(unittest.TestCase):
 
         for line_number in range(random.randrange(self.num_lines)):
             current_line = self.logStats.get_entry()
-            if not self.parser.is_entry_valid(current_line):
-                continue
             interval = self.parser.parse_interval(current_line)
             if not self.parser.is_interval_valid(interval):
                 continue
@@ -89,8 +87,6 @@ class TestLogStats(unittest.TestCase):
     def test_organize_by_day(self):
         for line_number in range(random.randrange(self.num_lines)):
             current_line = self.logStats.get_entry()
-            if not self.parser.is_entry_valid(current_line):
-                continue
             date = self.parser.parse_date(current_line)
             interval = self.parser.parse_interval(current_line)
             if not self.parser.is_interval_valid(interval):

@@ -93,7 +93,16 @@ class LogStats:
         return self.log_file
 
     def get_entry(self):
-        return self.log_file.readline()
+        """
+            Returns a valid entry or empty string is EOF has been reached
+        """
+
+        line = ""
+        while not self.parser.is_entry_valid(line):
+            line = self.log_file.readline()
+            if not line:
+                break
+        return line
 
     def get_entries_day(self):
         """
