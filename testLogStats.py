@@ -57,7 +57,9 @@ class TestLogStats(unittest.TestCase):
 
             self.assertIsNotNone(self.validate_date(date))
 
-    def validate_interval(self, since, until):
+    def validate_interval(self, interval):
+        since = interval[0]
+        until = interval[1]
         result = None
         try:
             since_date = datetime.datetime.fromtimestamp(int(since)).strftime('%Y-%m-%d %H:%M:%S')
@@ -77,8 +79,10 @@ class TestLogStats(unittest.TestCase):
             current_line = self.logStats.get_entry()
             if not self.parser.is_entry_valid(current_line):
                 continue
-            (since, until) = self.parser.parse_interval(current_line)
-            self.assertIsNotNone(self.validate_interval(since, until))
+            interval = self.parser.parse_interval(current_line)
+            if not self.parser.is_interval_valid(interval):
+                continue
+            self.assertIsNotNone(self.validate_interval(interval))
 
     def test_organize_by_day(self):
         for line_number in range(random.randrange(self.num_lines)):
@@ -87,6 +91,8 @@ class TestLogStats(unittest.TestCase):
                 continue
             date = self.parser.parse_date(current_line)
             interval = self.parser.parse_interval(current_line)
+            if not self.parser.is_interval_valid(interval):
+                continue
             self.assertTrue(date in self.entries)
             self.assertTrue(interval in self.entries[date])
 

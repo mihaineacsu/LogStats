@@ -39,9 +39,6 @@ class LogStats:
             pr = urlparse.urlparse(line)
             try:
                 since = urlparse.parse_qs(pr.query)['since']
-                #faulty entries with 'since=0' found
-                if since == 0:
-                    since = None
             except KeyError:
                 since = None
             return since
@@ -66,6 +63,17 @@ class LogStats:
 
             date = self.parse_date(line)
             return (self.get_since(line), self.get_until(line, date))
+
+        def is_interval_valid(self, interval):
+            """
+                Checks whether 'since' values are valid.
+                Faulty entries with 'since=0' found.
+            """
+
+            since = interval[0]
+            if since is None or since == 0:
+                return False
+            return True
 
         def is_entry_valid(self, line):
             """
@@ -96,6 +104,8 @@ class LogStats:
                 continue
             date = self.parser.parse_date(entry)
             interval = self.parser.parse_interval(entry)
+            if not self.parser.is_interval_valid(interval):
+                continue
             #if dict already contains date entry, updates it's values
             if date in entries:
                 new_list = entries.get(date)
