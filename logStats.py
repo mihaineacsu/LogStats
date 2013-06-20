@@ -3,6 +3,7 @@ import re
 import ast
 import time
 import datetime
+import urlparse
 
 import numpy
 import matplotlib.pyplot as plt
@@ -34,26 +35,37 @@ class LogStats:
             """
                 Returns 'since' timestamp value.
             """
+            
+            pr = urlparse.urlparse(line)
+            try:
+                since = urlparse.parse_qs(pr.query)['since']
+                #faulty entries with 'since=0' found
+                if since == 0:
+                    since = None
+            except KeyError:
+                since = None
+            return since
 
-            since_index = line.find('since')
-            newline = line[since_index:]
-            return newline[:newline.find(',')].split()[1]
-
-        def get_until(self, line):
+        def get_until(self, line, date):
             """
                 Returns 'until' timestamp value.
             """
 
-            until_index = line.find('until')
-            newline = line[until_index:]
-            return newline[:newline.find('}')].split()[1]
+            pr = urlparse.urlparse(line)
+            try:
+                until = urlparse.parse_qs(pr.query)['until']
+            except KeyError:
+                date = datetime.datetime.strptime(date, '%d/%b/%Y')
+                until = time.mktime(date.timetuple())
+            return until
 
         def parse_interval(self, line):
             """
                 Returns a (since, until) tuple from line
             """
 
-            return (self.get_since(line), self.get_until(line))
+            date = self.parse_date(line)
+            return (self.get_since(line), self.get_until(line, date))
 
         def is_entry_valid(self, line):
             """
@@ -61,7 +73,8 @@ class LogStats:
                 It's not valid if doesn't contain 'since' keyword
             """
 
-            if line.find('since') != -1:
+            if line.find('since') != -1 or \
+                line.find('until') != -1:
                 return True
             return False
 
