@@ -334,6 +334,10 @@ def plot_prod_api(list_machines):
         subplot.text(bar.get_x() + bar.get_width() / 2., 1.2 * height,
                 '%d'%int(height), ha='center', va='bottom', color='black')
 
+    bars_all = [bars, bars2]
+    subplot.legend((bar[0] for bar in bars_all),
+                ["prod-api1", "prod-api2"])
+
     subplot.autoscale(tight=True)
 
 def plot_same_graph(list_machines):
@@ -349,6 +353,10 @@ def plot_same_graph(list_machines):
     intervals.append('older')
     plt.xticks(x_axis + 1.5 * width, intervals, size='small')
     subplot.autoscale(tight=True)
+
+    bars_all = [bars, bars2, bars3]
+    subplot.legend((bar[0] for bar in bars_all),
+                ["prod-api1", "prod-api2", "ubvu-api1"])
 
 def plot_custom(list_overall):
     """
