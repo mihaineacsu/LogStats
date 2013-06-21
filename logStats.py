@@ -6,17 +6,20 @@ import datetime
 import urlparse
 import gzip
 import tarfile
+import csv
 
 import numpy
 import matplotlib.pyplot as plt
 from dateutil.relativedelta import *
 
-from config import log_folder, filters
+from config import log_folder, results_folder, filters
 
 
 class LogStats:
     def __init__(self, log_file):
+        print log_file
         full_path = os.path.join(log_folder, log_file)
+        print full_path
         try:
             if os.path.splitext(log_file)[1] == '.gz':
                 self.log_file = gzip.open(full_path, 'r')
@@ -272,11 +275,12 @@ def ensure_dir(dirname):
         os.makedirs(dirname)
 
 def set_env():
-    results_folder = os.path.join(os.getcwd(), 'results')
-    ensure_dir(results_folder)
+    results_path = os.path.join(os.getcwd(), results_folder)
+    ensure_dir(results_path)
     current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S')
-    current_results = os.path.join(results_folder, current_time)
-    ensure_dir(current_results)
+    save_path = os.path.join(results_path, current_time)
+    ensure_dir(save_path)
+    return save_path
 
 def extract_logs():
     for f in os.listdir(log_folder):
@@ -310,17 +314,79 @@ def get_files(dir_name):
 def combine(results, stats):
     for day in stats.keys():
         if day in results:
+            print day
+            print stats[day]
+            print results
             results[day] = [(x + y) for x, y in zip(results[day], stats[day])] 
+            print results[day]
+            print '---'
         else:
             results[day] = stats[day]
     return results
 
+def compute_overall(results):
+    overall = []
+    for i in range(19):
+        overall.append(0)
+    for day in results:
+        overall = [(x + y) for x, y in zip(overall, results[day])]
+    return overall
+
+def write_stats(save_folder, machine_name, results):
+    if machine_name is '.':
+        machine_name = 'untitled'
+    save_path = os.path.join(save_folder, machine_name)
+    ensure_dir(save_path)
+    for day in results:
+        f_name = datetime.datetime.strptime(day, "%d/%b/%Y").strftime('%Y-%m-%d')
+        with open(os.path.join(save_path, f_name) + '.csv', 'w+') as f:
+            writer = csv.writer(f, delimiter=",")
+            time_intervals = range(0, 91, 5)[1:]
+            time_intervals.append('older')
+            writer.writerow(['Accesses', 'Time intervals'])
+            index = 0
+            for i in results[day]:
+                writer.writerow([i, time_intervals[index]])
+                index = index + 1
+    with open(os.path.join(save_path, 'overall_' + machine_name) + '.csv', 'w+') as f:
+        writer = csv.writer(f, delimiter=",")
+        time_intervals = range(0, 91, 5)[1:]
+        time_intervals.append('older')
+        writer.writerow(['Accesses', 'Time intervals'])
+        index = 0
+        results_overall = compute_overall(results)
+        for i in results_overall:
+            writer.writerow([i, time_intervals[index]])
+            index = index + 1
+
+def plot_overall(list_overall):
+    for machine in list_overall:
+        fig = plt.figure()
+        if machine is '.':
+            fig.suptitle('untitled', fontsize=20)
+        fig.suptitle(machine, fontsize=20)
+        x_axis = numpy.arange(len(list_overall[machine]))
+        subplot = plt.subplot(111)
+        subplot.bar(x_axis, list_overall[machine], align = 'center')
+        intervals = range(0,91,5)[1:]
+        intervals.append('older')
+        plt.xticks(x_axis, intervals, size = 'small')
+    plt.show()
+
 if __name__ == '__main__':
-    set_env()
+    save_folder = set_env()
     extract_logs()
     dir_dict = get_files(log_folder)
+    list_overall = {}
+
     for d in dir_dict:
         results = {}
         for f in dir_dict[d]:
+            if d is not '.':
+                f = os.path.join(d, f)
             stats = LogStats(f)
             results = combine(results, stats.compute())
+        write_stats(save_folder, d, results)
+        list_overall[d] = compute_overall(results)
+
+    plot_overall(list_overall)
