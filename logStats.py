@@ -4,6 +4,8 @@ import ast
 import time
 import datetime
 import urlparse
+import gzip
+import tarfile
 
 import numpy
 import matplotlib.pyplot as plt
@@ -14,10 +16,14 @@ from config import log_folder, filters
 
 class LogStats:
     def __init__(self, log_file):
+        full_path = os.path.join(log_folder, log_file)
         try:
-            self.log_file = open(os.path.join(log_folder, log_file), 'r')
+            if os.path.splitext(log_file)[1] == '.gz':
+                self.log_file = gzip.open(full_path, 'r')
+            else:
+                self.log_file = open(full_path, 'r')
         except IOError:
-            "Could not open log file!"
+            print "Could not open file"
 
         self.parser = self.EntryParser()
 
@@ -129,16 +135,16 @@ class LogStats:
 
         return entries
 
-    def get_previous_months_dates(self, date):
+    def get_previous_intervals(self, date):
         """
-            Computes the dates for all the 3 months before date;
-            Returns these dates (datetime.datetime type) in a list.
+            Computes the dates for every 5 days before date.
+            Returns those dates (datetime.datetime type) in a list.
         """
 
         dates_before = []
         date = datetime.datetime.strptime(date, "%d/%b/%Y")
-        for i in range(1,4):
-            new_date = date - relativedelta(months=i)
+        for i in range(5, 91, 5):
+            new_date = date - relativedelta(days=i)
             dates_before.append(new_date)
         return dates_before
 
@@ -149,41 +155,55 @@ class LogStats:
 
         return [time.mktime(date.timetuple()) for date in dates]
 
-    def get_date_stats(self, previous_months, accessed_dates):
+    def get_stats(self, previous_intervals, accessed_dates):
         """
             accessed_dates is list of (since, until) tuples;
             previous_months contains ending dates of previous_months intervals;
             Returns a list with the num of data accesses for each month.
         """
 
-        results = [0, 0, 0, 0]
+        results = []
+        for i in range(len(previous_intervals) + 1):
+            results.append(0)
         for accessed_date in accessed_dates:
             since = float(accessed_date[0])
-            #'month' is used to mark the accessed month
+            #'day' is used to mark the accessed day
             #in regard to date of request
-            month = 0
+            day = 0
             found = False
-            for date in previous_months:
+            for date in previous_intervals:
                 if since > date:
-                    results[month] = results[month] + 1
+                    results[day] = results[day] + 1
                     found = True
                     break
-                month = month + 1
+                day = day + 1
 
             if found is False:
-                results[month] = results[month] + 1
+                results[day] = results[day] + 1
         return results
 
     def gather_overall_stats(self, day_results):
         """
-            Uses stats from each day to compute overall stats
+            Adds stats from each day to compute overall stats.
         """
 
-        overall = [0, 0, 0 ,0]
+        overall = []
+        for i in range(len(day_results[0])):
+            overall.append(0)
         for day in day_results:
             overall = [(x + y) for x, y in zip(overall, day)]
 
         return overall
+
+    def compute(self):
+        all_stats = {}
+        entries = self.get_entries_day()
+        for date in entries:
+            prev_intervals = self.get_previous_intervals(date)
+            new_months = self.convert_timestamp(prev_intervals)
+            all_stats.setdefault(date, []).extend(self.get_stats(new_months, entries[date]))
+        
+        return all_stats
 
     def plot_stats(self, day_stats, overall_stats, entries):
         days_plot = plt.figure()
@@ -220,11 +240,12 @@ class LogStats:
 
         for rect in rects:
             for index in range(len(rect)):
-                print index
                 height = rect[index].get_height()
                 days_ax0.text(rect[index].get_x() + rect[index].get_width()/2.,
                         1.05*height, '%d'%int(height), ha='center', va='bottom')
 
+                print results
+                print stats
         overall_plot = plt.figure()
         overall_ax0 = overall_plot.add_subplot(111)
 
@@ -245,3 +266,61 @@ class LogStats:
                     1.05*height, '%d'%int(height), ha='center', va='bottom')
 
         plt.show()
+
+def ensure_dir(dirname):
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+def set_env():
+    results_folder = os.path.join(os.getcwd(), 'results')
+    ensure_dir(results_folder)
+    current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S')
+    current_results = os.path.join(results_folder, current_time)
+    ensure_dir(current_results)
+
+def extract_logs():
+    for f in os.listdir(log_folder):
+        if os.path.splitext(f)[1] == '.tgz':
+            tar_path = os.path.join(log_folder, f)
+            tar_file = tarfile.open(tar_path, 'r')
+
+            extract_path = os.path.join(log_folder, os.path.splitext(f)[0])
+            ensure_dir(extract_path)
+
+            items = tar_file.getnames()
+            for item in items:
+                item_path = os.path.join(extract_path, item)
+                if not os.path.exists(item_path):
+                    tar_file.extract(item, extract_path)
+
+def get_files(dir_name):
+    files = {}
+    for f in os.listdir(dir_name):
+        if os.path.splitext(f)[1] == '.tgz':
+            continue
+        if os.path.isdir(os.path.join(log_folder, f)):
+            if dir_name is not log_folder:
+                continue
+            files[f] = get_files(os.path.join(log_folder, f))['.']
+        else:
+            files.setdefault('.', []).append(f)
+
+    return files
+
+def combine(results, stats):
+    for day in stats.keys():
+        if day in results:
+            results[day] = [(x + y) for x, y in zip(results[day], stats[day])] 
+        else:
+            results[day] = stats[day]
+    return results
+
+if __name__ == '__main__':
+    set_env()
+    extract_logs()
+    dir_dict = get_files(log_folder)
+    for d in dir_dict:
+        results = {}
+        for f in dir_dict[d]:
+            stats = LogStats(f)
+            results = combine(results, stats.compute())
