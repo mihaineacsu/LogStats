@@ -14,7 +14,6 @@ from dateutil.relativedelta import *
 
 from config import log_folder, results_folder, filters
 
-
 class LogStats:
     def __init__(self, log_file):
         print log_file
@@ -292,40 +291,36 @@ def write_to_file(save_folder, machine_name, results):
             writer.writerow([i, time_intervals[index]])
             index = index + 1
 
-def plot_overall(list_overall):
-    for machine in list_overall:
+def plot_individual_graph(list_machines):
+    for machine in list_machines:
         fig = plt.figure()
         if machine is '.':
             fig.suptitle('untitled', fontsize=20)
         fig.suptitle(machine, fontsize=20)
-        x_axis = numpy.arange(len(list_overall[machine]))
+        x_axis = numpy.arange(len(list_machines[machine]))
         subplot = plt.subplot(111)
-        bars = subplot.bar(x_axis, list_overall[machine], align='center')
-        intervals = range(0,91,5)[1:]
+        bars = subplot.bar(x_axis, list_machines[machine], align='center')
+        intervals = range(0, 91, 5)[1:]
         intervals.append('older')
         plt.xticks(x_axis, intervals, size='small')
         for bar in bars:
             height = bar.get_height()
+            if height == 0:
+                continue
             subplot.text(bar.get_x() + bar.get_width() / 2., 5000 + height,
                     '%d'%int(height), ha='center', va='bottom')
 
-    plt.show()
-
-def plot_custom(list_overall):
-    """
-        Plots prod apis aggregated in a single graph figure.
-    """
-
-    prod_apis = plt.figure()
-    prod_apis.suptitle("prod api's", fontsize=20)
+def plot_prod_api(list_machines):
+    figure = plt.figure()
+    figure.suptitle("prod-api's", fontsize=20)
     x_axis = numpy.arange(len(list_overall['prod-api1']))
     subplot = plt.subplot(111)
-    width = 0.5
+    width = 0.4
     bars = subplot.bar(x_axis - width / 2, list_overall['prod-api1'], width, color='blue', align='center')
     bars2 = subplot.bar(x_axis + width / 2, list_overall['prod-api2'], width, color='black', align='center')
     intervals = range(0,91,5)[1:]
     intervals.append('older')
-    plt.xticks(x_axis, intervals, size='small')
+    plt.xticks(x_axis + width, intervals, size='small')
     for bar in bars:
         height = bar.get_height()
         if height == 0:
@@ -339,9 +334,30 @@ def plot_custom(list_overall):
         subplot.text(bar.get_x() + bar.get_width() / 2., 1.2 * height,
                 '%d'%int(height), ha='center', va='bottom', color='black')
 
-
     subplot.autoscale(tight=True)
 
+def plot_same_graph(list_machines):
+    figure = plt.figure()
+    figure.suptitle("all", fontsize=20)
+    x_axis = numpy.arange(len(list_overall['prod-api1']))
+    subplot = plt.subplot(111)
+    width = 0.3
+    bars = subplot.bar(x_axis - width, list_overall['prod-api1'], width, color='blue', align='center')
+    bars2 = subplot.bar(x_axis, list_overall['prod-api2'], width, color='black', align='center')
+    bars3 = subplot.bar(x_axis + width, list_overall['ubvu-api1'], width, color='red', align='center')
+    intervals = range(0,91,5)[1:]
+    intervals.append('older')
+    plt.xticks(x_axis + 1.5 * width, intervals, size='small')
+    subplot.autoscale(tight=True)
+
+def plot_custom(list_overall):
+    """
+        Plots prod apis aggregated in a single graph figure.
+    """
+    plot_prod_api(list_overall)
+    new_dict = {'ubvu-api1': list_overall['ubvu-api1']}
+    plot_individual_graph(new_dict)
+    plot_same_graph(list_overall)
     plt.show()
 
 if __name__ == '__main__':
