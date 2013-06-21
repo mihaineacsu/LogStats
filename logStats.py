@@ -104,7 +104,7 @@ class LogStats:
 
     def get_entry(self):
         """
-            Returns a valid entry or empty string is EOF has been reached
+            Returns a valid entry or empty string is EOF has been reached.
         """
 
         line = ""
@@ -205,70 +205,8 @@ class LogStats:
             prev_intervals = self.get_previous_intervals(date)
             new_months = self.convert_timestamp(prev_intervals)
             all_stats.setdefault(date, []).extend(self.get_stats(new_months, entries[date]))
-        
+
         return all_stats
-
-    def plot_stats(self, day_stats, overall_stats, entries):
-        days_plot = plt.figure()
-        days_ax0 = days_plot.add_subplot(111)
-
-        x_day_location = numpy.arange(len(day_stats))
-        width = 0.1
-
-        one_month_ago = [a for a, b, c, d in day_stats]
-        two_months_ago = [b for a, b, c, d in day_stats]
-        three_months_ago = [c for a, b, c, d in day_stats]
-        older = [d for a, b, c, d in day_stats]
-        days = [day for day in entries]
-
-        rect_one_month = days_ax0.bar(x_day_location, one_month_ago,
-                width, color='r')
-        rect_two_months = days_ax0.bar(x_day_location + width, two_months_ago,
-                width, color='g')
-        rect_three_months = days_ax0.bar(x_day_location + 2 * width,
-                three_months_ago, width, color='b')
-        rect_older = days_ax0.bar(x_day_location + 3 * width, older, width,
-                color='y')
-        rects = [rect_one_month, rect_two_months, rect_three_months, rect_older]
-
-        month_legend = ["One month ago", "Two months ago", "Three months ago",
-                "Older"]
-
-        days_ax0.set_ylabel('Accesses')
-        days_ax0.set_title('Accesses to data by day')
-        days_ax0.set_xticks(x_day_location + width / 2)
-        days_ax0.set_xticklabels(days)
-        days_ax0.legend((rect[0] for rect in rects),
-                month_legend)
-
-        for rect in rects:
-            for index in range(len(rect)):
-                height = rect[index].get_height()
-                days_ax0.text(rect[index].get_x() + rect[index].get_width()/2.,
-                        1.05*height, '%d'%int(height), ha='center', va='bottom')
-
-                print results
-                print stats
-        overall_plot = plt.figure()
-        overall_ax0 = overall_plot.add_subplot(111)
-
-        x_overall_location = numpy.arange(len(rects))
-        overall_width = 0.5
-
-        rect_overall = overall_ax0.bar(x_overall_location, overall_stats,
-                overall_width, color = 'r')
-
-        overall_ax0.set_ylabel('Accesses')
-        overall_ax0.set_title('Overall accesses')
-        overall_ax0.set_xticks(x_overall_location + overall_width / 2)
-        overall_ax0.set_xticklabels(month_legend)
-
-        for index in range(len(overall_stats)):
-            height = rect_overall[index].get_height()
-            overall_ax0.text(rect_overall[index].get_x()+rect_overall[index].get_width()/2.,
-                    1.05*height, '%d'%int(height), ha='center', va='bottom')
-
-        plt.show()
 
 def ensure_dir(dirname):
     if not os.path.exists(dirname):
@@ -314,12 +252,7 @@ def get_files(dir_name):
 def combine(results, stats):
     for day in stats.keys():
         if day in results:
-            print day
-            print stats[day]
-            print results
-            results[day] = [(x + y) for x, y in zip(results[day], stats[day])] 
-            print results[day]
-            print '---'
+            results[day] = [(x + y) for x, y in zip(results[day], stats[day])]
         else:
             results[day] = stats[day]
     return results
@@ -332,7 +265,7 @@ def compute_overall(results):
         overall = [(x + y) for x, y in zip(overall, results[day])]
     return overall
 
-def write_stats(save_folder, machine_name, results):
+def write_to_file(save_folder, machine_name, results):
     if machine_name is '.':
         machine_name = 'untitled'
     save_path = os.path.join(save_folder, machine_name)
@@ -367,10 +300,48 @@ def plot_overall(list_overall):
         fig.suptitle(machine, fontsize=20)
         x_axis = numpy.arange(len(list_overall[machine]))
         subplot = plt.subplot(111)
-        subplot.bar(x_axis, list_overall[machine], align = 'center')
+        bars = subplot.bar(x_axis, list_overall[machine], align='center')
         intervals = range(0,91,5)[1:]
         intervals.append('older')
-        plt.xticks(x_axis, intervals, size = 'small')
+        plt.xticks(x_axis, intervals, size='small')
+        for bar in bars:
+            height = bar.get_height()
+            subplot.text(bar.get_x() + bar.get_width() / 2., 5000 + height,
+                    '%d'%int(height), ha='center', va='bottom')
+
+    plt.show()
+
+def plot_custom(list_overall):
+    """
+        Plots prod apis aggregated in a single graph figure.
+    """
+
+    prod_apis = plt.figure()
+    prod_apis.suptitle("prod api's", fontsize=20)
+    x_axis = numpy.arange(len(list_overall['prod-api1']))
+    subplot = plt.subplot(111)
+    width = 0.5
+    bars = subplot.bar(x_axis - width / 2, list_overall['prod-api1'], width, color='blue', align='center')
+    bars2 = subplot.bar(x_axis + width / 2, list_overall['prod-api2'], width, color='black', align='center')
+    intervals = range(0,91,5)[1:]
+    intervals.append('older')
+    plt.xticks(x_axis, intervals, size='small')
+    for bar in bars:
+        height = bar.get_height()
+        if height == 0:
+            continue
+        subplot.text(bar.get_x() + bar.get_width() / 2., 1.2 * height,
+                '%d'%int(height), ha='center', va='bottom', color='blue')
+    for bar in bars2:
+        height = bar.get_height()
+        if height == 0:
+            continue
+        subplot.text(bar.get_x() + bar.get_width() / 2., 1.2 * height,
+                '%d'%int(height), ha='center', va='bottom', color='black')
+
+
+    subplot.autoscale(tight=True)
+
     plt.show()
 
 if __name__ == '__main__':
@@ -386,7 +357,7 @@ if __name__ == '__main__':
                 f = os.path.join(d, f)
             stats = LogStats(f)
             results = combine(results, stats.compute())
-        write_stats(save_folder, d, results)
+        write_to_file(save_folder, d, results)
         list_overall[d] = compute_overall(results)
 
-    plot_overall(list_overall)
+    plot_custom(list_overall)
