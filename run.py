@@ -190,10 +190,12 @@ def compute_accesses_by_day(overall_by_intervals):
 
     return overall_by_day
 
-def plot_custom(machines):
+def plot_custom(overall_intervals, overall_day):
     """
         Plot apis aggregated
     """
+
+    machines = overall_intervals
     prod_apis = {'prod-api1': machines['prod-api1'],
         'prod-api2': machines['prod-api2']}
     plot_by_intervals(prod_apis, "prod api's")
@@ -204,6 +206,7 @@ def plot_custom(machines):
     all_apis = dict(prod_apis.items() + ubvu_api.items())
     plot_by_intervals(all_apis, 'all')
 
+    machines = overall_day
     for m in machines:
         plot_by_days(machines[m], m + " by days")
 
