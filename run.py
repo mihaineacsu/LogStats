@@ -73,12 +73,18 @@ def combine(results, stats):
             results[day] = stats[day]
     return results
 
-def compute_overall(results):
-    overall = []
-    for i in range(19):
-        overall.append(0)
+def compute_overall_intervals(results):
+    overall = [0] * 19
     for day in results:
         overall = [(x + y) for x, y in zip(overall, results[day])]
+
+    return overall
+
+def compute_overall_day(results):
+    overall = {}
+    for day in results:
+        overall[day] = sum(results[day])
+
     return overall
 
 def write_to_file(save_folder, machine_name, results):
@@ -103,7 +109,7 @@ def write_to_file(save_folder, machine_name, results):
         time_intervals.append('older')
         writer.writerow(['Accesses', 'Time intervals'])
         index = 0
-        results_overall = compute_overall(results)
+        results_overall = compute_overall_intervals(results)
         for i in results_overall:
             writer.writerow([i, time_intervals[index]])
             index = index + 1
@@ -147,19 +153,59 @@ def plot_by_intervals(list_overall, title):
     plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
     plt.autoscale(tight=True)
 
-def plot_custom(list_overall):
+def plot_by_days(days_dict, title):
+    plt.figure()
+
+    days = sorted(days_dict.keys())
+    x_axis = numpy.arange(len(days))
+
+    width = x_axis[1] / float(len(days))
+
+    acc = []
+    for day in days:
+        acc.append(days_dict[day])
+
+    bars = plt.bar(x_axis, acc, width=width)
+    x_axis = x_axis + width
+
+    for bar in bars:
+        height = bar.get_height()
+        if height == 0:
+            continue
+
+        plt.text(bar.get_x() + bar.get_width() / 2., 1.05 * height,
+                '%d'%int(height), ha='center', va='bottom', rotation=90)
+
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    plt.title(title)
+    plt.xticks(x_axis, days, size='small')
+    plt.ylabel('accesses')
+    plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
+    plt.autoscale(tight=True)
+
+def compute_accesses_by_day(overall_by_intervals):
+    overall_by_day = {}
+    for machine in list_overall:
+        overall_by_day[machine] = sum(list_overall[machine])
+
+    return overall_by_day
+
+def plot_custom(machines):
     """
-        Plots apis aggregated
+        Plot apis aggregated
     """
-    prod_apis = {'prod-api1': list_overall['prod-api1'],
-        'prod-api2': list_overall['prod-api2']}
+    prod_apis = {'prod-api1': machines['prod-api1'],
+        'prod-api2': machines['prod-api2']}
     plot_by_intervals(prod_apis, "prod api's")
 
-    ubvu_api = {'ubvu-api1': list_overall['ubvu-api1']}
+    ubvu_api = {'ubvu-api1': machines['ubvu-api1']}
     plot_by_intervals(ubvu_api, 'ubvu api')
 
     all_apis = dict(prod_apis.items() + ubvu_api.items())
     plot_by_intervals(all_apis, 'all')
+
+    for m in machines:
+        plot_by_days(machines[m], m + " by days")
 
     plt.show()
 
@@ -168,7 +214,8 @@ def main():
     extract_logs()
     dir_dict = get_files(log_folder)
 
-    list_overall = {}
+    overall_intervals = {}
+    overall_day = {}
     for d in dir_dict:
         results = {}
         for f in dir_dict[d]:
@@ -177,9 +224,10 @@ def main():
             stats = StatsFromLog(f)
             results = combine(results, stats.compute())
         write_to_file(save_folder, d, results)
-        list_overall[d] = compute_overall(results)
+        overall_intervals[d] = compute_overall_intervals(results)
+        overall_day[d] = compute_overall_day(results)
 
-    plot_custom(list_overall)
+    plot_custom(overall_intervals, overall_day)
 
 if __name__ == '__main__':
     sys.exit(main())
