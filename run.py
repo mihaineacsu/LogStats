@@ -19,11 +19,12 @@ def ensure_dir(dirname):
 
 def set_env():
     """
-        Sets up dir to save results, returns path to it.
+        Set up dir to save results, returns path to dir.
     """
 
     results_path = os.path.join(os.getcwd(), results_folder)
     ensure_dir(results_path)
+
     current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S')
     save_path = os.path.join(results_path, current_time)
     ensure_dir(save_path)
@@ -31,14 +32,22 @@ def set_env():
     return save_path
 
 def extract_logs():
+    """
+        Logs for each each machine are kept in tar gz achives.
+        
+        Extract all found archives in separate folder.
+    """
+
     for f in os.listdir(log_folder):
         if os.path.splitext(f)[1] == '.tgz':
             tar_path = os.path.join(log_folder, f)
             tar_file = tarfile.open(tar_path, 'r')
 
+            # Create dir for extraction
             extract_path = os.path.join(log_folder, os.path.splitext(f)[0])
             ensure_dir(extract_path)
 
+            # Extract archive content in it's own dir
             items = tar_file.getnames()
             for item in items:
                 item_path = os.path.join(extract_path, item)
@@ -47,8 +56,10 @@ def extract_logs():
 
 def get_files(dir_name):
     """
-        Returns a dict with dir names as keys,
-        and the containing files as values.
+        Return a dict with dir names as keys,
+        and the files in dir as values.
+
+        Log files found 'log_folder' are kept under '.'.
     """
 
     files = {}
@@ -65,27 +76,49 @@ def get_files(dir_name):
 
     return files
 
-def combine(results, stats):
-    for day in stats.keys():
-        if day in results:
-            results[day] = [(x + y) for x, y in zip(results[day], stats[day])]
-        else:
-            results[day] = stats[day]
-    return results
+def combine_logs(logs):
+    """
+        Combine stats from all logs on a particular machine.
+        'stats' is a dict organized by days, the values for
+        each day are the num of acccesses on a particular interval.
+    """
 
-def compute_overall_intervals(results):
-    overall = [0] * 19
-    for day in results:
-        overall = [(x + y) for x, y in zip(overall, results[day])]
+    machine = {}
+    for log in logs:
+        for day in log.keys():
+            if day in machine:
+                machine[day] = [(x + y) for x, y in zip(machine[day], log[day])]
+            else:
+                machine[day] = log[day]
 
-    return overall
+    return machine
 
-def compute_overall_day(results):
-    overall = {}
-    for day in results:
-        overall[day] = sum(results[day])
+def compute_overall_intervals(machine_stats):
+    """
+        Sum up all accesses for each interval on all days.
+        'machine_stats" contains accesses on intervals for each day.
+        
+    """
 
-    return overall
+    intervals = 19
+    stats_overall = [0] * intervals
+    for day in machine_stats:
+        stats_overall = [(x + y) for x, y in zip(stats_overall,
+                machine_stats[day])]
+
+    return stats_overall
+
+def compute_overall_days(machine_stats):
+    """
+        Sum up all accesses for each day
+        'machine_stats" contains accesses on intervals for each day.
+    """
+
+    stats_overall = {}
+    for day in machine_stats:
+        stats_overall[day] = sum(machine_stats[day])
+
+    return stats_overall
 
 def write_to_file(save_folder, machine_name, results):
     if machine_name is '.':
@@ -144,14 +177,10 @@ def plot_by_intervals(list_overall, title):
                     color=colors[col_index], rotation=90)
         col_index = col_index + 1
 
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
     plt.title(title)
     plt.xticks(x_axis, intervals, size='small')
-    plt.ylabel('accesses')
-    plt.legend((bar[0] for bar in all_bars),
-            list_overall.keys())
-    plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
-    plt.autoscale(tight=True)
+    plt.legend((bar[0] for bar in all_bars), list_overall.keys())
+    plot_set_settings()
 
 def plot_by_days(days_dict, title):
     plt.figure()
@@ -176,19 +205,20 @@ def plot_by_days(days_dict, title):
         plt.text(bar.get_x() + bar.get_width() / 2., 1.05 * height,
                 '%d'%int(height), ha='center', va='bottom', rotation=90)
 
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
     plt.title(title)
     plt.xticks(x_axis, days, size='small')
+    plot_set_settings()
+
+def plot_set_settings():
+    """
+        Set plot figure settings. Needs to be called
+        after each new plot figure.
+    """
+
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
     plt.ylabel('accesses')
     plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
     plt.autoscale(tight=True)
-
-def compute_accesses_by_day(overall_by_intervals):
-    overall_by_day = {}
-    for machine in list_overall:
-        overall_by_day[machine] = sum(list_overall[machine])
-
-    return overall_by_day
 
 def plot_custom(overall_intervals, overall_day):
     """
@@ -217,20 +247,23 @@ def main():
     extract_logs()
     dir_dict = get_files(log_folder)
 
-    overall_intervals = {}
-    overall_day = {}
+    machines_intervals = {}
+    machines_days = {}
     for d in dir_dict:
-        results = {}
+        stats_log = []
         for f in dir_dict[d]:
             if d is not '.':
                 f = os.path.join(d, f)
-            stats = StatsFromLog(f)
-            results = combine(results, stats.compute())
-        write_to_file(save_folder, d, results)
-        overall_intervals[d] = compute_overall_intervals(results)
-        overall_day[d] = compute_overall_day(results)
+            stats_log.append(StatsFromLog(f).compute())
 
-    plot_custom(overall_intervals, overall_day)
+        stats_machine = combine_logs(stats_log)
+        write_to_file(save_folder, d, stats_machine)
+
+        # all stats organized by intervals or days for each machine
+        machines_intervals[d] = compute_overall_intervals(stats_machine)
+        machines_days[d] = compute_overall_days(stats_machine)
+
+    plot_custom(machines_intervals, machines_days)
 
 if __name__ == '__main__':
     sys.exit(main())
