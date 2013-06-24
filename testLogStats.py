@@ -103,34 +103,36 @@ class TestLogStats(unittest.TestCase):
 #            self.assertTrue(date in self.entries)
 #            self.assertTrue(interval in self.entries[date])
 #
-#    def test_previous_months_dates(self):
+#    def test_previous_intervals_dates(self):
 #        for date in self.entries:
-#            months = self.logStats.get_previous_months_dates(date)
-#            self.assertEqual(len(months), 3)
-#            for month in months:
-#                self.assertTrue(type(month) is datetime.datetime)
+#            prev_intervals = self.logStats.get_previous_intervals(date)
+#            #we're looking at every 5 days intervals, and I added older
+#            #than 90 days
+#            self.assertEqual(len(prev_intervals), 90 / 5)
+#            for prev_date in prev_intervals:
+#                self.assertTrue(type(prev_date) is datetime.datetime)
 #
 #    def test_convert_dates_timestamp(self):
 #        for date in self.entries:
-#            months = self.logStats.get_previous_months_dates(date)
-#            new_months = self.logStats.convert_timestamp(months)
-#            self.assertEqual(len(new_months), 3)
-#            for month in new_months:
-#                self.assertTrue(type(month) is float)
+#            prev_intervals = self.logStats.get_previous_intervals(date)
+#            conv_intervals = self.logStats.convert_timestamp(prev_intervals)
+#            self.assertEqual(len(conv_intervals), 90 / 5)
+#            for interval in conv_intervals:
+#                self.assertTrue(type(interval) is float)
 #
-#    def test_get_date_stats(self):
+#    def test_get_stats(self):
 #        for date in self.entries:
-#            months = self.logStats.get_previous_months_dates(date)
-#            new_months = self.logStats.convert_timestamp(months)
-#            day_stats = self.logStats.get_date_stats(new_months, self.entries[date])
+#            prev_intervals = self.logStats.get_previous_intervals(date)
+#            conv_intervals = self.logStats.convert_timestamp(prev_intervals)
+#            day_stats = self.logStats.get_stats(conv_intervals, self.entries[date])
 #            self.assertIsNotNone(day_stats)
-
+#
     def test_plot(self):
         all_stats = []
         for date in self.entries:
-            months = self.logStats.get_previous_months_dates(date)
-            new_months = self.logStats.convert_timestamp(months)
-            all_stats.append(self.logStats.get_date_stats(new_months, self.entries[date]))
+            prev_intervals = self.logStats.get_previous_intervals(date)
+            new_months = self.logStats.convert_timestamp(prev_intervals)
+            all_stats.append(self.logStats.get_stats(new_months, self.entries[date]))
 
         overall_stats = self.logStats.gather_overall_stats(all_stats)
         self.logStats.plot_stats(all_stats, overall_stats, self.entries)

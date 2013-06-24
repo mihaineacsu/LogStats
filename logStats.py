@@ -4,20 +4,28 @@ import ast
 import time
 import datetime
 import urlparse
+import gzip
+import tarfile
+import csv
 
 import numpy
 import matplotlib.pyplot as plt
 from dateutil.relativedelta import *
 
-from config import log_folder, filters
-
+from config import log_folder, results_folder, filters
 
 class LogStats:
     def __init__(self, log_file):
+        print log_file
+        full_path = os.path.join(log_folder, log_file)
+        print full_path
         try:
-            self.log_file = open(os.path.join(log_folder, log_file), 'r')
+            if os.path.splitext(log_file)[1] == '.gz':
+                self.log_file = gzip.open(full_path, 'r')
+            else:
+                self.log_file = open(full_path, 'r')
         except IOError:
-            "Could not open log file!"
+            print "Could not open file"
 
         self.parser = self.EntryParser()
 
@@ -95,7 +103,7 @@ class LogStats:
 
     def get_entry(self):
         """
-            Returns a valid entry or empty string is EOF has been reached
+            Returns a valid entry or empty string is EOF has been reached.
         """
 
         line = ""
@@ -129,16 +137,16 @@ class LogStats:
 
         return entries
 
-    def get_previous_months_dates(self, date):
+    def get_previous_intervals(self, date):
         """
-            Computes the dates for all the 3 months before date;
-            Returns these dates (datetime.datetime type) in a list.
+            Computes the dates for every 5 days before date.
+            Returns those dates (datetime.datetime type) in a list.
         """
 
         dates_before = []
         date = datetime.datetime.strptime(date, "%d/%b/%Y")
-        for i in range(1,4):
-            new_date = date - relativedelta(months=i)
+        for i in range(5, 91, 5):
+            new_date = date - relativedelta(days=i)
             dates_before.append(new_date)
         return dates_before
 
@@ -149,99 +157,204 @@ class LogStats:
 
         return [time.mktime(date.timetuple()) for date in dates]
 
-    def get_date_stats(self, previous_months, accessed_dates):
+    def get_stats(self, previous_intervals, accessed_dates):
         """
             accessed_dates is list of (since, until) tuples;
             previous_months contains ending dates of previous_months intervals;
             Returns a list with the num of data accesses for each month.
         """
 
-        results = [0, 0, 0, 0]
+        results = []
+        for i in range(len(previous_intervals) + 1):
+            results.append(0)
         for accessed_date in accessed_dates:
             since = float(accessed_date[0])
-            #'month' is used to mark the accessed month
+            #'day' is used to mark the accessed day
             #in regard to date of request
-            month = 0
+            day = 0
             found = False
-            for date in previous_months:
+            for date in previous_intervals:
                 if since > date:
-                    results[month] = results[month] + 1
+                    results[day] = results[day] + 1
                     found = True
                     break
-                month = month + 1
+                day = day + 1
 
             if found is False:
-                results[month] = results[month] + 1
+                results[day] = results[day] + 1
         return results
 
     def gather_overall_stats(self, day_results):
         """
-            Uses stats from each day to compute overall stats
+            Adds stats from each day to compute overall stats.
         """
 
-        overall = [0, 0, 0 ,0]
+        overall = []
+        for i in range(len(day_results[0])):
+            overall.append(0)
         for day in day_results:
             overall = [(x + y) for x, y in zip(overall, day)]
 
         return overall
 
-    def plot_stats(self, day_stats, overall_stats, entries):
-        days_plot = plt.figure()
-        days_ax0 = days_plot.add_subplot(111)
+    def compute(self):
+        all_stats = {}
+        entries = self.get_entries_day()
+        for date in entries:
+            prev_intervals = self.get_previous_intervals(date)
+            new_months = self.convert_timestamp(prev_intervals)
+            all_stats.setdefault(date, []).extend(self.get_stats(new_months, entries[date]))
 
-        x_day_location = numpy.arange(len(day_stats))
-        width = 0.1
+        return all_stats
 
-        one_month_ago = [a for a, b, c, d in day_stats]
-        two_months_ago = [b for a, b, c, d in day_stats]
-        three_months_ago = [c for a, b, c, d in day_stats]
-        older = [d for a, b, c, d in day_stats]
-        days = [day for day in entries]
+def ensure_dir(dirname):
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
 
-        rect_one_month = days_ax0.bar(x_day_location, one_month_ago,
-                width, color='r')
-        rect_two_months = days_ax0.bar(x_day_location + width, two_months_ago,
-                width, color='g')
-        rect_three_months = days_ax0.bar(x_day_location + 2 * width,
-                three_months_ago, width, color='b')
-        rect_older = days_ax0.bar(x_day_location + 3 * width, older, width,
-                color='y')
-        rects = [rect_one_month, rect_two_months, rect_three_months, rect_older]
+def set_env():
+    results_path = os.path.join(os.getcwd(), results_folder)
+    ensure_dir(results_path)
+    current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S')
+    save_path = os.path.join(results_path, current_time)
+    ensure_dir(save_path)
+    return save_path
 
-        month_legend = ["One month ago", "Two months ago", "Three months ago",
-                "Older"]
+def extract_logs():
+    for f in os.listdir(log_folder):
+        if os.path.splitext(f)[1] == '.tgz':
+            tar_path = os.path.join(log_folder, f)
+            tar_file = tarfile.open(tar_path, 'r')
 
-        days_ax0.set_ylabel('Accesses')
-        days_ax0.set_title('Accesses to data by day')
-        days_ax0.set_xticks(x_day_location + width / 2)
-        days_ax0.set_xticklabels(days)
-        days_ax0.legend((rect[0] for rect in rects),
-                month_legend)
+            extract_path = os.path.join(log_folder, os.path.splitext(f)[0])
+            ensure_dir(extract_path)
 
-        for rect in rects:
-            for index in range(len(rect)):
-                print index
-                height = rect[index].get_height()
-                days_ax0.text(rect[index].get_x() + rect[index].get_width()/2.,
-                        1.05*height, '%d'%int(height), ha='center', va='bottom')
+            items = tar_file.getnames()
+            for item in items:
+                item_path = os.path.join(extract_path, item)
+                if not os.path.exists(item_path):
+                    tar_file.extract(item, extract_path)
 
-        overall_plot = plt.figure()
-        overall_ax0 = overall_plot.add_subplot(111)
+def get_files(dir_name):
+    files = {}
+    for f in os.listdir(dir_name):
+        if os.path.splitext(f)[1] == '.tgz' or f == ".DS_Store":
+            continue
+        if os.path.isdir(os.path.join(log_folder, f)):
+            if dir_name is not log_folder:
+                continue
+            files[f] = get_files(os.path.join(log_folder, f))['.']
+        else:
+            files.setdefault('.', []).append(f)
 
-        x_overall_location = numpy.arange(len(rects))
-        overall_width = 0.5
+    return files
 
-        rect_overall = overall_ax0.bar(x_overall_location, overall_stats,
-                overall_width, color = 'r')
+def combine(results, stats):
+    for day in stats.keys():
+        if day in results:
+            results[day] = [(x + y) for x, y in zip(results[day], stats[day])]
+        else:
+            results[day] = stats[day]
+    return results
 
-        overall_ax0.set_ylabel('Accesses')
-        overall_ax0.set_title('Overall accesses')
-        overall_ax0.set_xticks(x_overall_location + overall_width / 2)
-        overall_ax0.set_xticklabels(month_legend)
+def compute_overall(results):
+    overall = []
+    for i in range(19):
+        overall.append(0)
+    for day in results:
+        overall = [(x + y) for x, y in zip(overall, results[day])]
+    return overall
 
-        for index in range(len(overall_stats)):
-            height = rect_overall[index].get_height()
-            overall_ax0.text(rect_overall[index].get_x()+rect_overall[index].get_width()/2.,
-                    1.05*height, '%d'%int(height), ha='center', va='bottom')
+def write_to_file(save_folder, machine_name, results):
+    if machine_name is '.':
+        machine_name = 'untitled'
+    save_path = os.path.join(save_folder, machine_name)
+    ensure_dir(save_path)
+    for day in results:
+        f_name = datetime.datetime.strptime(day, "%d/%b/%Y").strftime('%Y-%m-%d')
+        with open(os.path.join(save_path, f_name) + '.csv', 'w+') as f:
+            writer = csv.writer(f, delimiter=",")
+            time_intervals = range(0, 91, 5)[1:]
+            time_intervals.append('older')
+            writer.writerow(['Accesses', 'Time intervals'])
+            index = 0
+            for i in results[day]:
+                writer.writerow([i, time_intervals[index]])
+                index = index + 1
+    with open(os.path.join(save_path, 'overall_' + machine_name) + '.csv', 'w+') as f:
+        writer = csv.writer(f, delimiter=",")
+        time_intervals = range(0, 91, 5)[1:]
+        time_intervals.append('older')
+        writer.writerow(['Accesses', 'Time intervals'])
+        index = 0
+        results_overall = compute_overall(results)
+        for i in results_overall:
+            writer.writerow([i, time_intervals[index]])
+            index = index + 1
 
-        plt.show()
+def plot_by_intervals(list_overall, title):
+    plt.figure()
+    plt.title(title)
+
+    intervals = range(0, 91, 5)[1:]
+    intervals.append('older')
+    x_axis = numpy.arange(len(intervals))
+
+    width = x_axis[1] / float(len(list_overall))
+
+    all_bars = []
+    colors = ['blue', 'black', 'red']
+    c_index = 0
+    for machine in list_overall:
+        all_bars.append(plt.bar(x_axis, list_overall[machine], width=width, color=colors[c_index]))
+        x_axis = x_axis + width
+        c_index = c_index + 1
+    plt.xticks(x_axis, intervals, size='small')
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    c_index = 0
+    for bars in all_bars:
+        for bar in bars:
+            height = bar.get_height()
+            if height == 0:
+                continue
+            plt.text(bar.get_x() + bar.get_width() / 2., 1000 + height,
+                    '%d'%int(height), ha='center', va='bottom', color=colors[c_index], rotation=90)
+        c_index = c_index + 1
+    plt.legend((bar[0] for bar in all_bars),
+            list_overall.keys())
+    plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
+    plt.autoscale(tight=True)
+
+
+def plot_custom(list_overall):
+    """
+        Plots apis aggregated
+    """
+    prod_apis = {'prod-api1': list_overall['prod-api1'],
+        'prod-api2': list_overall['prod-api2']}
+    plot_by_intervals(prod_apis, "prod api's")
+
+    ubvu_api = {'ubvu-api1': list_overall['ubvu-api1']}
+    plot_by_intervals(ubvu_api, 'ubvu api')
+
+    all_apis = dict(prod_apis.items() + ubvu_api.items())
+    plot_by_intervals(all_apis, 'all')
+
+    plt.show()
+
+if __name__ == '__main__':
+    save_folder = set_env()
+    extract_logs()
+    dir_dict = get_files(log_folder)
+
+    for d in dir_dict:
+        results = {}
+        for f in dir_dict[d]:
+            if d is not '.':
+                f = os.path.join(d, f)
+            print f
+            stats = LogStats(f)
+            results = combine(results, stats.compute())
+        write_to_file(save_folder, d, results)
+        list_overall[d] = compute_overall(results)
+
+    plot_custom(list_overall)
