@@ -237,7 +237,7 @@ def extract_logs():
 def get_files(dir_name):
     files = {}
     for f in os.listdir(dir_name):
-        if os.path.splitext(f)[1] == '.tgz':
+        if os.path.splitext(f)[1] == '.tgz' or f == ".DS_Store":
             continue
         if os.path.isdir(os.path.join(log_folder, f)):
             if dir_name is not log_folder:
@@ -291,94 +291,67 @@ def write_to_file(save_folder, machine_name, results):
             writer.writerow([i, time_intervals[index]])
             index = index + 1
 
-def plot_individual_graph(list_machines):
-    for machine in list_machines:
-        fig = plt.figure()
-        if machine is '.':
-            fig.suptitle('untitled', fontsize=20)
-        fig.suptitle(machine, fontsize=20)
-        x_axis = numpy.arange(len(list_machines[machine]))
-        subplot = plt.subplot(111)
-        bars = subplot.bar(x_axis, list_machines[machine], align='center')
-        intervals = range(0, 91, 5)[1:]
-        intervals.append('older')
-        plt.xticks(x_axis, intervals, size='small')
+def plot_by_intervals(list_overall, title):
+    plt.figure()
+    plt.title(title)
+
+    intervals = range(0, 91, 5)[1:]
+    intervals.append('older')
+    x_axis = numpy.arange(len(intervals))
+
+    width = x_axis[1] / float(len(list_overall))
+
+    all_bars = []
+    colors = ['blue', 'black', 'red']
+    c_index = 0
+    for machine in list_overall:
+        all_bars.append(plt.bar(x_axis, list_overall[machine], width=width, color=colors[c_index]))
+        x_axis = x_axis + width
+        c_index = c_index + 1
+    plt.xticks(x_axis, intervals, size='small')
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    c_index = 0
+    for bars in all_bars:
         for bar in bars:
             height = bar.get_height()
             if height == 0:
                 continue
-            subplot.text(bar.get_x() + bar.get_width() / 2., 5000 + height,
-                    '%d'%int(height), ha='center', va='bottom')
+            plt.text(bar.get_x() + bar.get_width() / 2., 1000 + height,
+                    '%d'%int(height), ha='center', va='bottom', color=colors[c_index], rotation=90)
+        c_index = c_index + 1
+    plt.legend((bar[0] for bar in all_bars),
+            list_overall.keys())
+    plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
+    plt.autoscale(tight=True)
 
-def plot_prod_api(list_machines):
-    figure = plt.figure()
-    figure.suptitle("prod-api's", fontsize=20)
-    x_axis = numpy.arange(len(list_overall['prod-api1']))
-    subplot = plt.subplot(111)
-    width = 0.4
-    bars = subplot.bar(x_axis - width / 2, list_overall['prod-api1'], width, color='blue', align='center')
-    bars2 = subplot.bar(x_axis + width / 2, list_overall['prod-api2'], width, color='black', align='center')
-    intervals = range(0,91,5)[1:]
-    intervals.append('older')
-    plt.xticks(x_axis + width, intervals, size='small')
-    for bar in bars:
-        height = bar.get_height()
-        if height == 0:
-            continue
-        subplot.text(bar.get_x() + bar.get_width() / 2., 1.2 * height,
-                '%d'%int(height), ha='center', va='bottom', color='blue')
-    for bar in bars2:
-        height = bar.get_height()
-        if height == 0:
-            continue
-        subplot.text(bar.get_x() + bar.get_width() / 2., 1.2 * height,
-                '%d'%int(height), ha='center', va='bottom', color='black')
-
-    bars_all = [bars, bars2]
-    subplot.legend((bar[0] for bar in bars_all),
-                ["prod-api1", "prod-api2"])
-
-    subplot.autoscale(tight=True)
-
-def plot_same_graph(list_machines):
-    figure = plt.figure()
-    figure.suptitle("all", fontsize=20)
-    x_axis = numpy.arange(len(list_overall['prod-api1']))
-    subplot = plt.subplot(111)
-    width = 0.3
-    bars = subplot.bar(x_axis - width, list_overall['prod-api1'], width, color='blue', align='center')
-    bars2 = subplot.bar(x_axis, list_overall['prod-api2'], width, color='black', align='center')
-    bars3 = subplot.bar(x_axis + width, list_overall['ubvu-api1'], width, color='red', align='center')
-    intervals = range(0,91,5)[1:]
-    intervals.append('older')
-    plt.xticks(x_axis + 1.5 * width, intervals, size='small')
-    subplot.autoscale(tight=True)
-
-    bars_all = [bars, bars2, bars3]
-    subplot.legend((bar[0] for bar in bars_all),
-                ["prod-api1", "prod-api2", "ubvu-api1"])
 
 def plot_custom(list_overall):
     """
-        Plots prod apis aggregated in a single graph figure.
+        Plots apis aggregated
     """
-    plot_prod_api(list_overall)
-    new_dict = {'ubvu-api1': list_overall['ubvu-api1']}
-    plot_individual_graph(new_dict)
-    plot_same_graph(list_overall)
+    prod_apis = {'prod-api1': list_overall['prod-api1'],
+        'prod-api2': list_overall['prod-api2']}
+    plot_by_intervals(prod_apis, "prod api's")
+
+    ubvu_api = {'ubvu-api1': list_overall['ubvu-api1']}
+    plot_by_intervals(ubvu_api, 'ubvu api')
+
+    all_apis = dict(prod_apis.items() + ubvu_api.items())
+    plot_by_intervals(all_apis, 'all')
+
     plt.show()
 
 if __name__ == '__main__':
     save_folder = set_env()
     extract_logs()
     dir_dict = get_files(log_folder)
-    list_overall = {}
 
     for d in dir_dict:
         results = {}
         for f in dir_dict[d]:
             if d is not '.':
                 f = os.path.join(d, f)
+            print f
             stats = LogStats(f)
             results = combine(results, stats.compute())
         write_to_file(save_folder, d, results)
