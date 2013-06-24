@@ -97,7 +97,6 @@ def compute_overall_intervals(machine_stats):
     """
         Sum up all accesses for each interval on all days.
         'machine_stats" contains accesses on intervals for each day.
-        
     """
 
     intervals = 19
