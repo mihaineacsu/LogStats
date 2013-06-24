@@ -13,7 +13,7 @@ class StatsFromLog:
         Uses EntryParser to gather data from valid entries.
     """
         
-    def __init__(self, log_file):
+    def __init__(self, log_file, parser):
         full_path = os.path.join(log_folder, log_file)
         try:
             if os.path.splitext(log_file)[1] == '.gz':
@@ -23,7 +23,7 @@ class StatsFromLog:
         except IOError:
             print "Could not open file"
 
-        self.parser = EntryParser()
+        self.parser = parser
 
     def get_entries_by_day(self):
         """
@@ -105,7 +105,6 @@ class StatsFromLog:
             if found is False:
                 date_stats[interval_index] += 1
 
-        print date_stats
         return date_stats
 
     def compute(self):

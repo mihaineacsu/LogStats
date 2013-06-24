@@ -11,6 +11,7 @@ import numpy
 import matplotlib.pyplot as plt
 
 from StatsFromLog import StatsFromLog
+from LogEntryParser import EntryParser
 from config import log_folder, results_folder
 
 def ensure_dir(dirname):
@@ -246,6 +247,8 @@ def main():
     extract_logs()
     dir_dict = get_files(log_folder)
 
+    parser = EntryParser()
+
     machines_intervals = {}
     machines_days = {}
     for d in dir_dict:
@@ -253,7 +256,7 @@ def main():
         for f in dir_dict[d]:
             if d is not '.':
                 f = os.path.join(d, f)
-            stats_log.append(StatsFromLog(f).compute())
+            stats_log.append(StatsFromLog(f, parser).compute())
 
         stats_machine = combine_logs(stats_log)
         write_to_file(save_folder, d, stats_machine)

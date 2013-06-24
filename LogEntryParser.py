@@ -5,57 +5,66 @@ import time
 from config import filters
 
 class EntryParser:
+    """
+        Class used to parse and validate entries in log file.
+    """
+
     def parse_date(self, line):
         """
-            Skips first character '[',
-            and returns the first elem till ':' which is the date
+            Skip first character '[',
+            and return the first elem till ':' which is the date
         """
 
         line = line[1:]
+
         return line.partition(':')[0]
 
     def get_since(self, line):
         """
-            Returns 'since' timestamp value.
+            Return 'since' timestamp value.
         """
 
         pr = urlparse.urlparse(line)
-        try:
-            since = urlparse.parse_qs(pr.query)['since'][0]
-            since = since.partition(' ')[0]
-        except KeyError:
-            since = None
-        return since
+        since = urlparse.parse_qs(pr.query).get('since', [''])[0]
+
+        if not since:
+            return None
+
+        return since.partition(' ')[0]
 
     def get_until(self, line, date):
         """
-            Returns 'until' timestamp value.
-            If 'until' value is missing, we set it to date of request
+            Return 'until' timestamp value.
+
+            If 'until' value is missing, set it to date of request
         """
 
         pr = urlparse.urlparse(line)
-        try:
-            until = urlparse.parse_qs(pr.query)['until'][0]
-            until = until.partition(' ')[0]
-        except KeyError:
-            date = datetime.datetime.strptime(date, '%d/%b/%Y')
-            until = str(time.mktime(date.timetuple()))
+        until = urlparse.parse_qs(pr.query).get('until', [''])[0]
 
-        return until
+        if not until:
+            date = datetime.datetime.strptime(date, '%d/%b/%Y')
+            return str(time.mktime(date.timetuple()))
+
+        return until.partition(' ')[0]
 
     def parse_interval(self, line):
         """
-            Returns a (since, until) tuple from line
+            Return a (since, until) tuple from line
         """
 
         date = self.parse_date(line)
+
         return (self.get_since(line), self.get_until(line, date))
 
     def is_interval_valid(self, interval):
         """
-            Checks whether 'since' values are valid.
+            Check whether 'since' values are valid.
             Faulty entries with 'since=0' have been found in log.
         """
+
+        if len(interval) != 2:
+            return False
 
         since = interval[0]
         if since is None or int(since) == 0:
@@ -65,10 +74,14 @@ class EntryParser:
 
     def is_entry_valid(self, line):
         """
-            Checks if log entry contains data request for a certain interval.
-            It's not valid if it doesn't contain 'since' keyword, it's not 
-            GET request with mention search.
+            Check if log entry contains data request for a certain interval
+            by checking if all filter entries apply.
+            Filter entries are set in config.py
         """
+
+        if 'since' not in line:
+            return False
+
         for filter_entry in filters:
             if filter_entry not in line:
                 return False
