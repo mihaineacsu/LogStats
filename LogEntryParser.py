@@ -40,6 +40,7 @@ class EntryParser:
         except KeyError:
             date = datetime.datetime.strptime(date, '%d/%b/%Y')
             until = str(time.mktime(date.timetuple()))
+
         return until
 
     def parse_interval(self, line):
@@ -59,6 +60,7 @@ class EntryParser:
         since = interval[0]
         if since is None or int(since) == 0:
             return False
+
         return True
 
     def is_entry_valid(self, line):
@@ -72,4 +74,3 @@ class EntryParser:
                 return False
 
         return True
-
