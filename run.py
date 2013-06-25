@@ -19,6 +19,9 @@ from LogEntryParser import EntryParser
 from config import log_folder, results_folder
 
 USAGE_DESC = "Plot accesses to data based on logs."
+USAGE_EPILOGUE = """The scripts expects each machine to have it's own
+                    folder with logs. These folders need to be placed 
+                    inside local folder: '""" + log_folder + """'."""
 
 def ensure_dir(dirname):
     if not os.path.exists(dirname):
@@ -44,6 +47,10 @@ def extract_logs():
         
         Extract all found archives in separate folder.
     """
+
+    if not os.path.exists(log_folder):
+        print "log_folder: '" + log_folder + "' does not exist."
+        sys.exit(1)
 
     for f in os.listdir(log_folder):
         if os.path.splitext(f)[1] == '.tgz':
@@ -206,6 +213,13 @@ def plot_custom(overall_intervals, overall_day, save_file, plot_cond):
         Plot apis aggregated
     """
 
+    if not overall_intervals.get('prod-api1') or \
+        not overall_intervals.get('prod-api2') or \
+        not overall_intervals.get('ubvu-api1'):
+            print "Log files missing or incorrect format.\
+            \nUse run -h for information on log files"
+            sys.exit(1)
+
     pdf_file = PdfPages(save_file)
 
     machines = overall_intervals
@@ -234,7 +248,7 @@ def get_args():
     """
 
     parser = arg_parser = argparse.ArgumentParser(description = USAGE_DESC,
-            prog = 'run')
+            prog='run', epilog=USAGE_EPILOGUE)
 
     parser.add_argument('-s', '--save', nargs=1,
             default = [results_folder], type = str,
