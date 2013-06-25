@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 import os
 import re
 import ast
@@ -6,31 +8,35 @@ import tarfile
 import csv
 import sys
 import datetime
+import argparse
 
 import numpy
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 from StatsFromLog import StatsFromLog
 from LogEntryParser import EntryParser
 from config import log_folder, results_folder
 
+USAGE_DESC = "Plot accesses to data based on logs."
+
 def ensure_dir(dirname):
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
-def set_env():
+def set_env(folder):
     """
-        Set up dir to save results, returns path to dir.
+        Set up dir to save results and generate file name and path
+        to save results using current time.
     """
 
-    results_path = os.path.join(os.getcwd(), results_folder)
+    results_path = os.path.join(os.getcwd(), folder)
     ensure_dir(results_path)
 
     current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S')
     save_path = os.path.join(results_path, current_time)
-    ensure_dir(save_path)
 
-    return save_path
+    return save_path + '.pdf'
 
 def extract_logs():
     """
@@ -120,33 +126,6 @@ def compute_overall_days(machine_stats):
 
     return stats_overall
 
-def write_to_file(save_folder, machine_name, results):
-    if machine_name is '.':
-        machine_name = 'untitled'
-    save_path = os.path.join(save_folder, machine_name)
-    ensure_dir(save_path)
-    for day in results:
-        f_name = datetime.datetime.strptime(day, "%d/%b/%Y").strftime('%Y-%m-%d')
-        with open(os.path.join(save_path, f_name) + '.csv', 'w+') as f:
-            writer = csv.writer(f, delimiter=",")
-            time_intervals = range(0, 91, 5)[1:]
-            time_intervals.append('older')
-            writer.writerow(['Accesses', 'Time intervals'])
-            index = 0
-            for i in results[day]:
-                writer.writerow([i, time_intervals[index]])
-                index = index + 1
-    with open(os.path.join(save_path, 'overall_' + machine_name) + '.csv', 'w+') as f:
-        writer = csv.writer(f, delimiter=",")
-        time_intervals = range(0, 91, 5)[1:]
-        time_intervals.append('older')
-        writer.writerow(['Accesses', 'Time intervals'])
-        index = 0
-        results_overall = compute_overall_intervals(results)
-        for i in results_overall:
-            writer.writerow([i, time_intervals[index]])
-            index = index + 1
-
 def plot_by_intervals(list_overall, title):
     plt.figure()
 
@@ -220,7 +199,7 @@ def plot_set_settings():
     plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
     plt.autoscale(tight=True)
 
-def plot_custom(overall_intervals, overall_day):
+def plot_custom(overall_intervals, overall_day, save_file, plot_cond):
     """
         Plot apis aggregated
     """
@@ -240,10 +219,33 @@ def plot_custom(overall_intervals, overall_day):
     for m in machines:
         plot_by_days(machines[m], m + " by days")
 
-    plt.show()
+    if plot_cond:
+        plt.show()
+
+def get_args():
+    """
+        Print usage info and parse command-line args.
+    """
+
+    parser = arg_parser = argparse.ArgumentParser(description = USAGE_DESC,
+            prog = 'run')
+
+    parser.add_argument('-s', '--save', nargs=1,
+            default = [results_folder], type = str,
+            help="""Save plots in specified folder.
+                 If this options is not specified, results are saved in
+                 'results_folder' set in config.py.""")
+
+    parser.add_argument('-p', '--plot', action='store_true',
+            help="""Plots custom graphs using native window system.
+                 Plotting is off by default.""")
+
+    return parser.parse_args(sys.argv[1:])
 
 def main():
-    save_folder = set_env()
+    args = vars(get_args())
+
+    save_file_path = set_env(args['save'][0])
     extract_logs()
     dir_dict = get_files(log_folder)
 
@@ -252,20 +254,20 @@ def main():
     machines_intervals = {}
     machines_days = {}
     for d in dir_dict:
-        stats_log = []
+        stats_from_logs = []
         for f in dir_dict[d]:
             if d is not '.':
                 f = os.path.join(d, f)
-            stats_log.append(StatsFromLog(f, parser).compute())
+            stats_from_logs.append(StatsFromLog(f, parser).compute())
 
-        stats_machine = combine_logs(stats_log)
-        write_to_file(save_folder, d, stats_machine)
+        stats_machine = combine_logs(stats_from_logs)
 
         # all stats organized by intervals or days for each machine
         machines_intervals[d] = compute_overall_intervals(stats_machine)
         machines_days[d] = compute_overall_days(stats_machine)
 
-    plot_custom(machines_intervals, machines_days)
+    plot_custom(machines_intervals, machines_days, save_file_path,
+            args['plot'])
 
 if __name__ == '__main__':
     sys.exit(main())
