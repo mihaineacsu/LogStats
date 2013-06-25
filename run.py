@@ -126,7 +126,7 @@ def compute_overall_days(machine_stats):
 
     return stats_overall
 
-def plot_by_intervals(list_overall, title):
+def plot_by_intervals(list_overall, title, pdf_file):
     plt.figure()
 
     intervals = range(0, 91, 5)[1:]
@@ -159,9 +159,9 @@ def plot_by_intervals(list_overall, title):
     plt.title(title)
     plt.xticks(x_axis, intervals, size='small')
     plt.legend((bar[0] for bar in all_bars), list_overall.keys())
-    plot_set_settings()
+    plot_set_settings(pdf_file)
 
-def plot_by_days(days_dict, title):
+def plot_by_days(days_dict, title, pdf_file):
     plt.figure()
 
     days = sorted(days_dict.keys())
@@ -186,9 +186,9 @@ def plot_by_days(days_dict, title):
 
     plt.title(title)
     plt.xticks(x_axis, days, size='small')
-    plot_set_settings()
+    plot_set_settings(pdf_file)
 
-def plot_set_settings():
+def plot_set_settings(pdf_file):
     """
         Set plot figure settings. Needs to be called
         after each new plot figure.
@@ -199,28 +199,34 @@ def plot_set_settings():
     plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
     plt.autoscale(tight=True)
 
+    plt.savefig(pdf_file, format='pdf')
+
 def plot_custom(overall_intervals, overall_day, save_file, plot_cond):
     """
         Plot apis aggregated
     """
 
+    pdf_file = PdfPages(save_file)
+
     machines = overall_intervals
     prod_apis = {'prod-api1': machines['prod-api1'],
         'prod-api2': machines['prod-api2']}
-    plot_by_intervals(prod_apis, "prod api's")
+    plot_by_intervals(prod_apis, "prod api's", pdf_file)
 
     ubvu_api = {'ubvu-api1': machines['ubvu-api1']}
-    plot_by_intervals(ubvu_api, 'ubvu api')
+    plot_by_intervals(ubvu_api, 'ubvu api', pdf_file)
 
     all_apis = dict(prod_apis.items() + ubvu_api.items())
-    plot_by_intervals(all_apis, 'all')
+    plot_by_intervals(all_apis, 'all', pdf_file)
 
     machines = overall_day
     for m in machines:
-        plot_by_days(machines[m], m + " by days")
+        plot_by_days(machines[m], m + " by days", pdf_file)
 
     if plot_cond:
         plt.show()
+
+    pdf_file.close()
 
 def get_args():
     """
