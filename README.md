@@ -32,4 +32,5 @@ Log files
 One .tgz log archives for each machine should be placed in the 'log_folder' set
 in config.py. The archives should be named accordingly to the 3 machines:
 "prod-api1.tgz", "prod-api2.tgz", "ubvu-api1.tgz".
-A second option would be placing log files in folders named after 3 machines.
+A second option would be placing log files in separate folders named after the
+3 machines.
