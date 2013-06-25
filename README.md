@@ -21,11 +21,11 @@ Requirements
 ------------
 <pre><code>pip install -r requirements.txt</pre></code>
 
-<pre>matplotlib</pre> install using pip might fail, issue has been discussed
+matplotlib install using pip might fail, issue has been discussed
 here: https://github.com/pypa/pip/issues/720
-If that's the case, you will need to install <pre>matplotlib</pre> separately.
+If that's the case, you will need to install matplotlib separately.
 I found the easiest way to do that on OS X 10.8 is to install it through the 
-<pre>Enthought Python Distribution</pre>.
+Enthought Python Distribution.
 
 Log files
 ---------
