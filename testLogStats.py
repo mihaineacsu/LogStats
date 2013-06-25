@@ -4,7 +4,9 @@ import os
 import time
 import datetime
 
-from logStats import LogStats
+from StatsFromLog import StatsFromLog
+from LogEntryParser import EntryParser
+from run import extract_logs
 
 from config import log_folder
 
@@ -14,33 +16,29 @@ class TestLogStats(unittest.TestCase):
             Selects a random log file for each test.
         """
 
-        log_files = os.listdir(log_folder)
+        extract_logs()
+        log_files = []
+        for dir_name, subdir_list, file_list in os.walk(log_folder, topdown=False):
+            for f in file_list:
+                if os.path.splitext(f)[1] != '.tgz' and f != '.DS_Store':
+                    parent_dir = os.path.basename(dir_name)
+                    log_files.append(os.path.join(parent_dir, f))
+                    
         random_log_name = log_files[random.randrange(len(log_files))]
         print random_log_name
-        self.logStats = LogStats(random_log_name)
 
-        self.parser = self.logStats.parser
+        self.parser = EntryParser()
+        self.stats_log = StatsFromLog(random_log_name, self.parser)
 
-        log_file = self.logStats.get_log_file()
-        self.num_lines = len(log_file.readlines())
-        log_file.seek(0, 0)
+        self.log_file = self.stats_log.get_log_file()
+        self.num_lines = len(self.log_file.readlines())
+        self.log_file.seek(0, 0)
 
-        self.entries = self.logStats.get_entries_day()
-        log_file.seek(0, 0)
+        self.entries = self.stats_log.get_entries_by_day()
+        self.log_file.seek(0, 0)
 
     def tearDown(self):
-       self.logStats.get_log_file().close()
-
-    def test_read_lines(self):
-        """
-            Helped me find why a different test didn't pass, best to be kept.
-        """
-
-        for line_num in range(random.randrange(self.num_lines)):
-            line = self.logStats.get_entry()
-            if not line:
-                continue
-            self.assertIsNotNone(line)
+       self.log_file.close()
 
     def validate_date(self, date):
         result = None
@@ -53,11 +51,11 @@ class TestLogStats(unittest.TestCase):
         return result
 
     def test_parse_date(self):
-        for line_number in range(random.randrange(self.num_lines)):
-            current_line = self.logStats.get_entry()
-            if not current_line:
+        for entry in self.log_file:
+            if not self.parser.is_entry_valid(entry):
                 continue
-            date = self.parser.parse_date(current_line)
+
+            date = self.parser.parse_date(entry)
 
             self.assertIsNotNone(self.validate_date(date))
 
@@ -71,55 +69,51 @@ class TestLogStats(unittest.TestCase):
             result = (since_date, until_date)
         except ValueError:
             print('Invalid since/until date!')
-
-        return result
+        finally:
+            return result
 
     def test_parse_interval_limits(self):
         '''
             Tests parser on returning 'since' and 'until' values.
         '''
 
-        for line_number in range(random.randrange(self.num_lines)):
-            current_line = self.logStats.get_entry()
-            if not current_line:
+        for entry in self.log_file:
+            if not self.parser.is_entry_valid(entry):
                 continue
-            interval = self.parser.parse_interval(current_line)
+
+            interval = self.parser.parse_interval(entry)
+
             if not self.parser.is_interval_valid(interval):
                 continue
+
             self.assertIsNotNone(self.validate_interval(interval))
 
     def test_organize_by_day(self):
-        for line_number in range(random.randrange(self.num_lines)):
-            current_line = self.logStats.get_entry()
-            if not current_line:
+        for entry in self.log_file:
+            if not self.parser.is_entry_valid(entry):
                 continue
-            date = self.parser.parse_date(current_line)
-            interval = self.parser.parse_interval(current_line)
+
+            date = self.parser.parse_date(entry)
+            interval = self.parser.parse_interval(entry)
+
             if not self.parser.is_interval_valid(interval):
                 continue
+
             self.assertTrue(date in self.entries)
             self.assertTrue(interval in self.entries[date])
 
     def test_previous_intervals_dates(self):
         for date in self.entries:
-            prev_intervals = self.logStats.get_previous_intervals(date)
+            prev_intervals = self.stats_log.get_prev_intervals(date)
             self.assertEqual(len(prev_intervals), 90 / 5)
-            for prev_date in prev_intervals:
-                self.assertTrue(type(prev_date) is datetime.datetime)
 
-    def test_convert_dates_timestamp(self):
-        for date in self.entries:
-            prev_intervals = self.logStats.get_previous_intervals(date)
-            conv_intervals = self.logStats.convert_timestamp(prev_intervals)
-            self.assertEqual(len(conv_intervals), 90 / 5)
-            for interval in conv_intervals:
-                self.assertTrue(type(interval) is float)
+            for prev_date in prev_intervals:
+                self.assertTrue(type(prev_date) is float)
 
     def test_get_stats(self):
         for date in self.entries:
-            prev_intervals = self.logStats.get_previous_intervals(date)
-            conv_intervals = self.logStats.convert_timestamp(prev_intervals)
-            day_stats = self.logStats.get_stats(conv_intervals, self.entries[date])
+            prev_intervals = self.stats_log.get_prev_intervals(date)
+            day_stats = self.stats_log.get_day_stats(prev_intervals, self.entries[date])
             self.assertIsNotNone(day_stats)
 
 

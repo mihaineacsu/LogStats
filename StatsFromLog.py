@@ -24,6 +24,13 @@ class StatsFromLog:
             print "Could not open file"
 
         self.parser = parser
+        
+    def get_log_file(self):
+        """
+            Return log file object
+        """
+           
+        return self.log_file
 
     def get_entries_by_day(self):
         """
