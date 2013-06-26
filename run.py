@@ -14,9 +14,8 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-from StatsFromLog import StatsFromLog
-from LogEntryParser import EntryParser
 from config import log_folder, results_folder
+from HostLogs import HostLogs
 
 USAGE_DESC = "Plot accesses to data based on logs."
 USAGE_EPILOGUE = """The scripts expects each machine to have it's own
@@ -75,23 +74,6 @@ def get_files(dir_name):
             files.setdefault('.', []).append(f)
 
     return files
-
-def combine_logs(logs):
-    """
-        Combine stats from all logs on a particular machine.
-        'stats' is a dict organized by days, the values for
-        each day are the num of acccesses on a particular interval.
-    """
-
-    machine = {}
-    for log in logs:
-        for day in log.keys():
-            if day in machine:
-                machine[day] = [(x + y) for x, y in zip(machine[day], log[day])]
-            else:
-                machine[day] = log[day]
-
-    return machine
 
 def compute_overall_intervals(machine_stats):
     """
@@ -288,23 +270,14 @@ def get_args():
 def main():
     args = get_args()
 
-    parser = EntryParser()
-
     machines_intervals = {}
     machines_days = {}
     for host in args['HOST']:
-        host_folder = PATH(log_folder, host)
-        stats_from_logs = []
-        for f in os.listdir(host_folder):
-            if f == '.DS_Store':
-                continue
-            stats_from_logs.append(StatsFromLog(PATH(host, f), parser).compute())
-
-        stats_machine = combine_logs(stats_from_logs)
+        h = HostLogs(host)
 
         # all stats organized by intervals or days for each machine
-        machines_intervals[host] = compute_overall_intervals(stats_machine)
-        machines_days[host] = compute_overall_days(stats_machine)
+        machines_intervals[host] = compute_overall_intervals(h.get_stats())
+        machines_days[host] = compute_overall_days(h.get_stats())
 
     plot_custom(machines_intervals, machines_days)
 
