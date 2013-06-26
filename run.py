@@ -28,20 +28,6 @@ def ensure_dir(dirname):
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
-def set_env(folder):
-    """
-        Set up dir to save results and generate file name and path
-        to save results using current time.
-    """
-
-    results_path = os.path.join(os.getcwd(), folder)
-    ensure_dir(results_path)
-
-    current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S')
-    save_path = os.path.join(results_path, current_time)
-
-    return save_path + '.pdf'
-
 def extract_logs():
     """
         Logs for each each machine are kept in tar gz achives.
@@ -208,33 +194,38 @@ def plot_set_settings(pdf_file):
 
     plt.savefig(pdf_file, format='pdf')
 
-def plot_custom(overall_intervals, overall_day, save_file):
+def plot_custom(overall_intervals, overall_day):
     """
         Plot apis aggregated
     """
 
+    save_file = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S') + '.pdf'
     pdf_file = PdfPages(save_file)
 
     machines = overall_intervals
+    plot_by_intervals(machines, 'test', pdf_file)
 #    prod_apis = {'prod-api1': machines['prod-api1'],
 #        'prod-api2': machines['prod-api2']}
 #    plot_by_intervals(prod_apis, "prod api's", pdf_file)
 #
-    ubvu_api = {'ubvu-api1': machines['ubvu-api1']}
-    plot_by_intervals(ubvu_api, 'ubvu api', pdf_file)
 
 #    all_apis = dict(prod_apis.items() + ubvu_api.items())
 #    plot_by_intervals(all_apis, 'all', pdf_file)
 #
-#    machines = overall_day
-#    for m in machines:
-#        plot_by_days(machines[m], m + " by days", pdf_file)
-#
+    machines = overall_day
+    for m in machines:
+        plot_by_days(machines[m], m + " by days", pdf_file)
+
     pdf_file.close()
 
     plt.show()
 
 def get_hosts_from_logs():
+    """
+        Each log archive is extracted in it's own dir.
+        Return a list of dirs, each dir represing a host.
+    """
+
     extract_logs()
 
     hosts = []
@@ -246,6 +237,11 @@ def get_hosts_from_logs():
     return hosts
             
 def match_hosts(args_hosts):
+    """
+        Returns a list of matched hosts received as
+        command line args and hosts that have logs.
+    """
+
     hosts = get_hosts_from_logs()
 
     matched = []
@@ -257,7 +253,9 @@ def match_hosts(args_hosts):
 
 def get_args():
     """
-        Print usage info and parse command-line args.
+        Print usage info, parse command-line args
+        and match hosts received as args with hosts that have logs
+        in 'log_folder'.
     """
 
     parser = arg_parser = argparse.ArgumentParser(description = USAGE_DESC,
@@ -289,29 +287,26 @@ def get_args():
 
 def main():
     args = get_args()
-    print args['HOST']
 
-#    save_file_path = set_env(args['save'][0])
-#    dir_dict = get_files(log_folder)
-#
-#    parser = EntryParser()
-#
-#    machines_intervals = {}
-#    machines_days = {}
-#    for d in dir_dict:
-#        stats_from_logs = []
-#        for f in dir_dict[d]:
-#            if d is not '.':
-#                f = os.path.join(d, f)
-#            stats_from_logs.append(StatsFromLog(f, parser).compute())
-#
-#        stats_machine = combine_logs(stats_from_logs)
-#
-#        # all stats organized by intervals or days for each machine
-#        machines_intervals[d] = compute_overall_intervals(stats_machine)
-#        machines_days[d] = compute_overall_days(stats_machine)
-#
-#    plot_custom(machines_intervals, machines_days, save_file_path)
+    parser = EntryParser()
+
+    machines_intervals = {}
+    machines_days = {}
+    for host in args['HOST']:
+        host_folder = PATH(log_folder, host)
+        stats_from_logs = []
+        for f in os.listdir(host_folder):
+            if f == '.DS_Store':
+                continue
+            stats_from_logs.append(StatsFromLog(PATH(host, f), parser).compute())
+
+        stats_machine = combine_logs(stats_from_logs)
+
+        # all stats organized by intervals or days for each machine
+        machines_intervals[host] = compute_overall_intervals(stats_machine)
+        machines_days[host] = compute_overall_days(stats_machine)
+
+    plot_custom(machines_intervals, machines_days)
 
 if __name__ == '__main__':
     sys.exit(main())
