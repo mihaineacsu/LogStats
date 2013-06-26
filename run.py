@@ -2,10 +2,7 @@
 
 import os
 import re
-import ast
-import gzip
 import tarfile
-import csv
 import sys
 import datetime
 import argparse
@@ -224,12 +221,12 @@ def main():
 
     machines_intervals = {}
     machines_days = {}
-    for host in args['HOST']:
-        h = HostLogs(host)
+    for h in args['HOST']:
+        host = HostLogs(h)
 
         # all stats organized by intervals or days for each machine
-        machines_intervals[host] = h.compute_overall_intervals()
-        machines_days[host] = h.compute_overall_days()
+        machines_intervals[h] = host.compute_overall_intervals()
+        machines_days[h] = host.compute_overall_days()
 
     plot_custom(machines_intervals, machines_days)
 

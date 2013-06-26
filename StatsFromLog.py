@@ -5,7 +5,6 @@ import time
 from dateutil.relativedelta import *
 
 from LogEntryParser import EntryParser
-from config import log_folder
 
 class StatsFromLog:
     """
@@ -13,17 +12,16 @@ class StatsFromLog:
         Uses EntryParser to gather data from valid entries.
     """
         
-    def __init__(self, log_file, parser):
-        full_path = os.path.join(log_folder, log_file)
+    def __init__(self, file_path, parser):
+        self.parser = parser
+
         try:
-            if os.path.splitext(log_file)[1] == '.gz':
-                self.log_file = gzip.open(full_path, 'r')
+            if os.path.splitext(file_path)[1] == '.gz':
+                self.log_file = gzip.open(file_path, 'r')
             else:
-                self.log_file = open(full_path, 'r')
+                self.log_file = open(file_path, 'r')
         except IOError:
             print "Could not open file"
-
-        self.parser = parser
 
     def get_entries_by_day(self):
         """
