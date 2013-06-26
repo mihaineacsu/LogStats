@@ -53,54 +53,6 @@ def extract_logs():
                 if not os.path.exists(item_path):
                     tar_file.extract(item, extract_path)
 
-def get_files(dir_name):
-    """
-        Return a dict with dir names as keys,
-        and the files in dir as values.
-
-        Log files found 'log_folder' are kept under '.'.
-    """
-
-    files = {}
-    for f in os.listdir(dir_name):
-        if os.path.splitext(f)[1] == '.tgz' or f == ".DS_Store":
-            continue
-
-        if os.path.isdir(os.path.join(log_folder, f)):
-            if dir_name is not log_folder:
-                continue
-            files[f] = get_files(os.path.join(log_folder, f))['.']
-        else:
-            files.setdefault('.', []).append(f)
-
-    return files
-
-def compute_overall_intervals(machine_stats):
-    """
-        Sum up all accesses for each interval on all days.
-        'machine_stats" contains accesses on intervals for each day.
-    """
-
-    intervals = 19
-    stats_overall = [0] * intervals
-    for day in machine_stats:
-        stats_overall = [(x + y) for x, y in zip(stats_overall,
-                machine_stats[day])]
-
-    return stats_overall
-
-def compute_overall_days(machine_stats):
-    """
-        Sum up all accesses for each day
-        'machine_stats" contains accesses on intervals for each day.
-    """
-
-    stats_overall = {}
-    for day in machine_stats:
-        stats_overall[day] = sum(machine_stats[day])
-
-    return stats_overall
-
 def plot_by_intervals(list_overall, title, pdf_file):
     plt.figure()
 
@@ -276,8 +228,8 @@ def main():
         h = HostLogs(host)
 
         # all stats organized by intervals or days for each machine
-        machines_intervals[host] = compute_overall_intervals(h.get_stats())
-        machines_days[host] = compute_overall_days(h.get_stats())
+        machines_intervals[host] = h.compute_overall_intervals()
+        machines_days[host] = h.compute_overall_days()
 
     plot_custom(machines_intervals, machines_days)
 

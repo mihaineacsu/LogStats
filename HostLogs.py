@@ -36,6 +36,31 @@ class HostLogs():
                     machine[day] = log[day]
 
         return machine
-        
-    def get_stats(self):
-        return self.stats_machine
+
+    def compute_overall_intervals(self):
+        """
+            Sum up all accesses for each interval on all days.
+            'machine_stats" contains accesses on intervals for each day.
+        """
+        machine_stats = self.stats_machine
+
+        intervals = 19
+        stats_overall = [0] * intervals
+        for day in machine_stats:
+            stats_overall = [(x + y) for x, y in zip(stats_overall,
+                    machine_stats[day])]
+
+        return stats_overall
+
+    def compute_overall_days(self):
+        """
+            Sum up all accesses for each day
+            'machine_stats" contains accesses on intervals for each day.
+        """
+        machine_stats = self.stats_machine
+
+        stats_overall = {}
+        for day in machine_stats:
+            stats_overall[day] = sum(machine_stats[day])
+
+        return stats_overall
