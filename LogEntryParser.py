@@ -1,4 +1,4 @@
-import urlparse
+import re
 import datetime
 import time
 
@@ -23,14 +23,9 @@ class EntryParser:
         """
             Return 'since' timestamp value.
         """
-
-        pr = urlparse.urlparse(line)
-        since = urlparse.parse_qs(pr.query).get('since', [''])[0]
-
-        if not since:
-            return None
-
-        return since.partition(' ')[0]
+        
+        since = re.search(r'since=\d+', line).group()
+        return re.search(r'\d+', since).group()
 
     def get_until(self, line, date):
         """
@@ -39,14 +34,13 @@ class EntryParser:
             If 'until' value is missing, set it to date of request
         """
 
-        pr = urlparse.urlparse(line)
-        until = urlparse.parse_qs(pr.query).get('until', [''])[0]
+        until = re.search(r'until=\d+', line)
 
         if not until:
             date = datetime.datetime.strptime(date, '%d/%b/%Y')
             return str(time.mktime(date.timetuple()))
 
-        return until.partition(' ')[0]
+        return re.search(r'\d+', until.group()).group()
 
     def parse_interval(self, line):
         """
