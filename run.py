@@ -2,10 +2,7 @@
 
 import os
 import re
-import ast
-import gzip
 import tarfile
-import csv
 import sys
 import datetime
 import argparse
@@ -14,9 +11,8 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-from StatsFromLog import StatsFromLog
-from LogEntryParser import EntryParser
 from config import log_folder, results_folder
+from HostLogs import HostLogs
 
 USAGE_DESC = "Plot accesses to data based on logs."
 USAGE_EPILOGUE = """The scripts expects each machine to have it's own
@@ -53,71 +49,6 @@ def extract_logs():
                 item_path = PATH(extract_path, item)
                 if not os.path.exists(item_path):
                     tar_file.extract(item, extract_path)
-
-def get_files(dir_name):
-    """
-        Return a dict with dir names as keys,
-        and the files in dir as values.
-
-        Log files found 'log_folder' are kept under '.'.
-    """
-
-    files = {}
-    for f in os.listdir(dir_name):
-        if os.path.splitext(f)[1] == '.tgz' or f == ".DS_Store":
-            continue
-
-        if os.path.isdir(os.path.join(log_folder, f)):
-            if dir_name is not log_folder:
-                continue
-            files[f] = get_files(os.path.join(log_folder, f))['.']
-        else:
-            files.setdefault('.', []).append(f)
-
-    return files
-
-def combine_logs(logs):
-    """
-        Combine stats from all logs on a particular machine.
-        'stats' is a dict organized by days, the values for
-        each day are the num of acccesses on a particular interval.
-    """
-
-    machine = {}
-    for log in logs:
-        for day in log.keys():
-            if day in machine:
-                machine[day] = [(x + y) for x, y in zip(machine[day], log[day])]
-            else:
-                machine[day] = log[day]
-
-    return machine
-
-def compute_overall_intervals(machine_stats):
-    """
-        Sum up all accesses for each interval on all days.
-        'machine_stats" contains accesses on intervals for each day.
-    """
-
-    intervals = 19
-    stats_overall = [0] * intervals
-    for day in machine_stats:
-        stats_overall = [(x + y) for x, y in zip(stats_overall,
-                machine_stats[day])]
-
-    return stats_overall
-
-def compute_overall_days(machine_stats):
-    """
-        Sum up all accesses for each day
-        'machine_stats" contains accesses on intervals for each day.
-    """
-
-    stats_overall = {}
-    for day in machine_stats:
-        stats_overall[day] = sum(machine_stats[day])
-
-    return stats_overall
 
 def plot_by_intervals(list_overall, title, pdf_file):
     plt.figure()
@@ -288,23 +219,14 @@ def get_args():
 def main():
     args = get_args()
 
-    parser = EntryParser()
-
     machines_intervals = {}
     machines_days = {}
-    for host in args['HOST']:
-        host_folder = PATH(log_folder, host)
-        stats_from_logs = []
-        for f in os.listdir(host_folder):
-            if f == '.DS_Store':
-                continue
-            stats_from_logs.append(StatsFromLog(PATH(host, f), parser).compute())
-
-        stats_machine = combine_logs(stats_from_logs)
+    for h in args['HOST']:
+        host = HostLogs(h)
 
         # all stats organized by intervals or days for each machine
-        machines_intervals[host] = compute_overall_intervals(stats_machine)
-        machines_days[host] = compute_overall_days(stats_machine)
+        machines_intervals[h] = host.compute_overall_intervals()
+        machines_days[h] = host.compute_overall_days()
 
     plot_custom(machines_intervals, machines_days)
 
