@@ -22,6 +22,7 @@ USAGE_DESC = "Plot accesses to data based on logs."
 USAGE_EPILOGUE = """The scripts expects each machine to have it's own
                     folder with logs. These folders need to be placed 
                     inside local folder: '""" + log_folder + """'."""
+PATH = os.path.join
 
 def ensure_dir(dirname):
     if not os.path.exists(dirname):
@@ -54,17 +55,16 @@ def extract_logs():
 
     for f in os.listdir(log_folder):
         if os.path.splitext(f)[1] == '.tgz':
-            tar_path = os.path.join(log_folder, f)
-            tar_file = tarfile.open(tar_path, 'r')
+            tar_file = tarfile.open(PATH(log_folder, f), 'r')
 
             # Create dir for extraction
-            extract_path = os.path.join(log_folder, os.path.splitext(f)[0])
+            extract_path = PATH(log_folder, os.path.splitext(f)[0])
             ensure_dir(extract_path)
 
             # Extract archive content in it's own dir
             items = tar_file.getnames()
             for item in items:
-                item_path = os.path.join(extract_path, item)
+                item_path = PATH(extract_path, item)
                 if not os.path.exists(item_path):
                     tar_file.extract(item, extract_path)
 
@@ -208,39 +208,52 @@ def plot_set_settings(pdf_file):
 
     plt.savefig(pdf_file, format='pdf')
 
-def plot_custom(overall_intervals, overall_day, save_file, plot_cond):
+def plot_custom(overall_intervals, overall_day, save_file):
     """
         Plot apis aggregated
     """
 
-    if not overall_intervals.get('prod-api1') or \
-        not overall_intervals.get('prod-api2') or \
-        not overall_intervals.get('ubvu-api1'):
-            print "Log files missing or incorrect format.\
-            \nUse run -h for information on log files"
-            sys.exit(1)
-
     pdf_file = PdfPages(save_file)
 
     machines = overall_intervals
-    prod_apis = {'prod-api1': machines['prod-api1'],
-        'prod-api2': machines['prod-api2']}
-    plot_by_intervals(prod_apis, "prod api's", pdf_file)
-
+#    prod_apis = {'prod-api1': machines['prod-api1'],
+#        'prod-api2': machines['prod-api2']}
+#    plot_by_intervals(prod_apis, "prod api's", pdf_file)
+#
     ubvu_api = {'ubvu-api1': machines['ubvu-api1']}
     plot_by_intervals(ubvu_api, 'ubvu api', pdf_file)
 
-    all_apis = dict(prod_apis.items() + ubvu_api.items())
-    plot_by_intervals(all_apis, 'all', pdf_file)
-
-    machines = overall_day
-    for m in machines:
-        plot_by_days(machines[m], m + " by days", pdf_file)
-
-    if plot_cond:
-        plt.show()
-
+#    all_apis = dict(prod_apis.items() + ubvu_api.items())
+#    plot_by_intervals(all_apis, 'all', pdf_file)
+#
+#    machines = overall_day
+#    for m in machines:
+#        plot_by_days(machines[m], m + " by days", pdf_file)
+#
     pdf_file.close()
+
+    plt.show()
+
+def get_hosts_from_logs():
+    extract_logs()
+
+    hosts = []
+    for item in os.listdir(log_folder):
+        item_path = PATH(log_folder, item)
+        if os.path.isdir(item_path):
+            hosts.append(item)
+
+    return hosts
+            
+def match_hosts(args_hosts):
+    hosts = get_hosts_from_logs()
+
+    matched = []
+    for arg_host in args_hosts:
+        matched.extend([word for index, word in enumerate(hosts) if
+                re.search(arg_host, word)])
+
+    return matched
 
 def get_args():
     """
@@ -255,39 +268,50 @@ def get_args():
             help="""Save plots in specified folder.
                  If this options is not specified, results are saved in
                  'results_folder' set in config.py.""")
+    
+    parser.add_argument('-H', '--HOST', type=str, required=True, nargs='+',
+            help="""#TODO""")
 
-    parser.add_argument('-p', '--plot', action='store_true',
-            help="""Plots custom graphs using native window system.
-                 Plotting is off by default.""")
+    args = vars(parser.parse_args(sys.argv[1:]))
+    
+    matched_hosts = match_hosts(args['HOST'])
 
-    return parser.parse_args(sys.argv[1:])
+    if len(matched_hosts) != len(args['HOST']):
+        print "Didn't find any host to match."
+        print "Available host logs: " + '%s' % \
+            ', '.join(map(str, get_hosts_from_logs()))
+
+        sys.exit(1)
+
+    args['HOST'] = matched_hosts
+
+    return args
 
 def main():
-    args = vars(get_args())
+    args = get_args()
+    print args['HOST']
 
-    save_file_path = set_env(args['save'][0])
-    extract_logs()
-    dir_dict = get_files(log_folder)
-
-    parser = EntryParser()
-
-    machines_intervals = {}
-    machines_days = {}
-    for d in dir_dict:
-        stats_from_logs = []
-        for f in dir_dict[d]:
-            if d is not '.':
-                f = os.path.join(d, f)
-            stats_from_logs.append(StatsFromLog(f, parser).compute())
-
-        stats_machine = combine_logs(stats_from_logs)
-
-        # all stats organized by intervals or days for each machine
-        machines_intervals[d] = compute_overall_intervals(stats_machine)
-        machines_days[d] = compute_overall_days(stats_machine)
-
-    plot_custom(machines_intervals, machines_days, save_file_path,
-            args['plot'])
+#    save_file_path = set_env(args['save'][0])
+#    dir_dict = get_files(log_folder)
+#
+#    parser = EntryParser()
+#
+#    machines_intervals = {}
+#    machines_days = {}
+#    for d in dir_dict:
+#        stats_from_logs = []
+#        for f in dir_dict[d]:
+#            if d is not '.':
+#                f = os.path.join(d, f)
+#            stats_from_logs.append(StatsFromLog(f, parser).compute())
+#
+#        stats_machine = combine_logs(stats_from_logs)
+#
+#        # all stats organized by intervals or days for each machine
+#        machines_intervals[d] = compute_overall_intervals(stats_machine)
+#        machines_days[d] = compute_overall_days(stats_machine)
+#
+#    plot_custom(machines_intervals, machines_days, save_file_path)
 
 if __name__ == '__main__':
     sys.exit(main())
