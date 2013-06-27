@@ -11,7 +11,7 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-from config import log_folder, results_folder
+from config import *
 from HostLogs import HostLogs
 
 USAGE_DESC = "Plot accesses to data based on logs."
@@ -48,6 +48,10 @@ def extract_logs():
                     tar_file.extract(item, extract_path)
 
 def plot_by_intervals(list_overall, title, pdf_file):
+    """
+        Plot accesses on each past interval.
+    """
+
     plt.figure()
 
     intervals = range(0, 91, 5)[1:]
@@ -70,8 +74,10 @@ def plot_by_intervals(list_overall, title, pdf_file):
     for bars in all_bars:
         for bar in bars:
             height = bar.get_height()
+            # Don't print bar score if it's equal to 0
             if height == 0:
                 continue
+
             plt.text(bar.get_x() + bar.get_width() / 2., 1000 + height,
                     '%d'%int(height), ha='center', va='bottom',
                     color=colors[col_index], rotation=90)
@@ -83,6 +89,10 @@ def plot_by_intervals(list_overall, title, pdf_file):
     plot_set_settings(pdf_file)
 
 def plot_by_days(days_dict, title, pdf_file):
+    """"
+        Plot number of requests per day.
+    """
+
     plt.figure()
 
     days = sorted(days_dict.keys())
@@ -99,6 +109,7 @@ def plot_by_days(days_dict, title, pdf_file):
 
     for bar in bars:
         height = bar.get_height()
+        # Don't print bar score if it's equal to 0
         if height == 0:
             continue
 
@@ -115,14 +126,16 @@ def plot_set_settings(pdf_file):
         after each new plot figure.
     """
 
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    plt.subplots_adjust(left=subplot_left, right=subplot_right,
+            top=subplot_top, bottom=subplot_bottom)
     plt.ylabel('accesses')
-    plt.grid(True, which="both", linestyle="dotted", alpha=0.7)
+    plt.grid(b=show_grid_axes, which="both", linestyle=grid_linestyle,
+            alpha=grid_alpha)
     plt.autoscale(tight=True)
 
     plt.savefig(pdf_file, format='pdf')
 
-def plot_custom(overall_intervals, overall_day, save_file):
+def plot(overall_intervals, overall_day, save_file):
     """
         Plot apis aggregated
     """
@@ -131,19 +144,10 @@ def plot_custom(overall_intervals, overall_day, save_file):
         save_file = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S') + '.pdf'
     pdf_file = PdfPages(save_file)
 
-    machines = overall_intervals
-    plot_by_intervals(machines, 'test', pdf_file)
-#    prod_apis = {'prod-api1': machines['prod-api1'],
-#        'prod-api2': machines['prod-api2']}
-#    plot_by_intervals(prod_apis, "prod api's", pdf_file)
-#
+    plot_by_intervals(overall_intervals, 'Accesses to each interval', pdf_file)
 
-#    all_apis = dict(prod_apis.items() + ubvu_api.items())
-#    plot_by_intervals(all_apis, 'all', pdf_file)
-#
-    machines = overall_day
-    for m in machines:
-        plot_by_days(machines[m], m + " by days", pdf_file)
+    for host in overall_day:
+        plot_by_days(overall_day[host], host + " by days", pdf_file)
 
     pdf_file.close()
 
@@ -204,8 +208,8 @@ def get_args():
     matched_hosts = match_hosts(args['HOST'])
 
     if len(matched_hosts) != len(args['HOST']):
-        print "Didn't match all yours hosts."
-        print "Available host logs: " + '%s' % \
+        print "Didn't match all yours hosts.\n" \
+            "Available host logs: " + '%s' % \
             ', '.join(map(str, get_hosts_from_logs()))
 
         sys.exit(1)
@@ -226,7 +230,7 @@ def main():
         machines_intervals[h] = host.compute_overall_intervals()
         machines_days[h] = host.compute_overall_days()
 
-    plot_custom(machines_intervals, machines_days, args['save'])
+    plot(machines_intervals, machines_days, args['save'])
 
 if __name__ == '__main__':
     sys.exit(main())
