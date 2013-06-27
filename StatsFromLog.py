@@ -1,6 +1,7 @@
 import os
 import datetime
 import time
+import gzip
 
 from dateutil.relativedelta import *
 
