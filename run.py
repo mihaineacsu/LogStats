@@ -15,9 +15,6 @@ from config import log_folder, results_folder
 from HostLogs import HostLogs
 
 USAGE_DESC = "Plot accesses to data based on logs."
-USAGE_EPILOGUE = """The scripts expects each machine to have it's own
-                    folder with logs. These folders need to be placed 
-                    inside local folder: '""" + log_folder + """'."""
 PATH = os.path.join
 
 def ensure_dir(dirname):
@@ -125,12 +122,13 @@ def plot_set_settings(pdf_file):
 
     plt.savefig(pdf_file, format='pdf')
 
-def plot_custom(overall_intervals, overall_day):
+def plot_custom(overall_intervals, overall_day, save_file):
     """
         Plot apis aggregated
     """
 
-    save_file = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S') + '.pdf'
+    if save_file is None:
+        save_file = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S') + '.pdf'
     pdf_file = PdfPages(save_file)
 
     machines = overall_intervals
@@ -190,29 +188,30 @@ def get_args():
     """
 
     parser = arg_parser = argparse.ArgumentParser(description = USAGE_DESC,
-            prog='run', epilog=USAGE_EPILOGUE)
+            prog='run')
 
     parser.add_argument('-s', '--save', nargs=1,
-            default = [results_folder], type = str,
-            help="""Save plots in specified folder.
-                 If this options is not specified, results are saved in
-                 'results_folder' set in config.py.""")
+            default = [None], type = str,
+            help="""Save plots in specified file.
+                    By default files are saved using current time/date stamp.""")
+                 
     
     parser.add_argument('-H', '--HOST', type=str, required=True, nargs='+',
-            help="""#TODO""")
+            help="""Plot specified hosts.""")
 
     args = vars(parser.parse_args(sys.argv[1:]))
     
     matched_hosts = match_hosts(args['HOST'])
 
     if len(matched_hosts) != len(args['HOST']):
-        print "Didn't find any host to match."
+        print "Didn't match all yours hosts."
         print "Available host logs: " + '%s' % \
             ', '.join(map(str, get_hosts_from_logs()))
 
         sys.exit(1)
 
     args['HOST'] = matched_hosts
+    args['save'] = args['save'][0]
 
     return args
 
@@ -224,11 +223,10 @@ def main():
     for h in args['HOST']:
         host = HostLogs(h)
 
-        # all stats organized by intervals or days for each machine
         machines_intervals[h] = host.compute_overall_intervals()
         machines_days[h] = host.compute_overall_days()
 
-    plot_custom(machines_intervals, machines_days)
+    plot_custom(machines_intervals, machines_days, args['save'])
 
 if __name__ == '__main__':
     sys.exit(main())
