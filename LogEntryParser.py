@@ -15,9 +15,7 @@ class EntryParser:
             and return the first elem till ':' which is the date
         """
 
-        line = line[1:]
-
-        return line.partition(':')[0]
+        return line[1:].partition(':')[0]
 
     def get_since(self, line):
         """
