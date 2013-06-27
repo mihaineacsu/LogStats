@@ -123,6 +123,7 @@ def plot_by_days(days_dict, title, pdf_file):
 
     for bar in bars:
         height = bar.get_height()
+
         # Don't print bar score if it's equal to 0
         if height == 0:
             continue
@@ -169,15 +170,14 @@ def plot(overall_intervals, args):
 def get_hosts_from_logs():
     """
         Each log archive is extracted in it's own dir.
-        Return a list of dirs, each dir represing a host.
+        Return a list of dirs, each dir being a host.
     """
 
     extract_logs()
 
     hosts = []
     for item in os.listdir(log_folder):
-        item_path = PATH(log_folder, item)
-        if os.path.isdir(item_path):
+        if os.path.isdir(PATH(log_folder, item)):
             hosts.append(item)
 
     return hosts
