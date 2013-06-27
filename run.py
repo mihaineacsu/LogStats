@@ -47,7 +47,14 @@ def extract_logs():
                 if not os.path.exists(item_path):
                     tar_file.extract(item, extract_path)
 
-def plot_by_intervals(list_overall, title, pdf_file):
+def percentage(part, whole):
+    """
+        Return part percentage out of whole.
+    """
+
+    return 100 * float(part)/float(whole)
+
+def plot_by_intervals(list_overall, title, pdf_file, args):
     """
         Plot accesses on each past interval.
     """
@@ -64,8 +71,14 @@ def plot_by_intervals(list_overall, title, pdf_file):
     colors = ['blue', 'black', 'red']
     col_index = 0
 
-    for machine in list_overall:
-        all_bars.append(plt.bar(x_axis, list_overall[machine], width=width,
+    for host in list_overall:
+        score = list_overall[host]
+
+        if args['percentage']:
+            total_score = sum(list_overall[host])
+            score = [percentage(x, total_score) for x in list_overall[host]]
+
+        all_bars.append(plt.bar(x_axis, score, width=width,
                     color=colors[col_index]))
         x_axis = x_axis + width
         col_index = col_index + 1
@@ -74,12 +87,13 @@ def plot_by_intervals(list_overall, title, pdf_file):
     for bars in all_bars:
         for bar in bars:
             height = bar.get_height()
-            # Don't print bar score if it's equal to 0
-            if height == 0:
-                continue
+            score_pos = 1.05 * height
 
-            plt.text(bar.get_x() + bar.get_width() / 2., 1000 + height,
-                    '%d'%int(height), ha='center', va='bottom',
+            if args['percentage']:
+                height = '%f' % height + '%'
+
+            plt.text(bar.get_x() + bar.get_width() / 2., score_pos,
+                    height, ha='center', va='bottom',
                     color=colors[col_index], rotation=90)
         col_index = col_index + 1
 
@@ -135,19 +149,18 @@ def plot_set_settings(pdf_file):
 
     plt.savefig(pdf_file, format='pdf')
 
-def plot(overall_intervals, overall_day, save_file):
+def plot(overall_intervals, args):
     """
         Plot apis aggregated
     """
 
+    save_file = args['save']
     if save_file is None:
         save_file = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M-%S') + '.pdf'
     pdf_file = PdfPages(save_file)
 
-    plot_by_intervals(overall_intervals, 'Accesses to each interval', pdf_file)
-
-    for host in overall_day:
-        plot_by_days(overall_day[host], host + " by days", pdf_file)
+    plot_by_intervals(overall_intervals, 'Accesses to each interval', pdf_file,
+            args)
 
     pdf_file.close()
 
@@ -198,8 +211,10 @@ def get_args():
             default = [None], type = str,
             help="""Save plots in specified file.
                     By default files are saved using current time/date stamp.""")
+
+    parser.add_argument('-p', '--percentage', action="store_true",
+            help="""Plot scores are displayed as percentages""")
                  
-    
     parser.add_argument('-H', '--HOST', type=str, required=True, nargs='+',
             help="""Plot specified hosts.""")
 
@@ -223,14 +238,12 @@ def main():
     args = get_args()
 
     machines_intervals = {}
-    machines_days = {}
     for h in args['HOST']:
         host = HostLogs(h)
 
         machines_intervals[h] = host.compute_overall_intervals()
-        machines_days[h] = host.compute_overall_days()
 
-    plot(machines_intervals, machines_days, args['save'])
+    plot(machines_intervals, args)
 
 if __name__ == '__main__':
     sys.exit(main())
